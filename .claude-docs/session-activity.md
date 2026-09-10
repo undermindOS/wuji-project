@@ -24,3 +24,14 @@
   - добавь SESSION.md
   - настрой деплой на vercel
 
+
+## 2026-09-10 07:28 — session c5aa0db7
+- Tool calls: 87 (AskUserQuestion:2 Bash:62 mcp__Claude_Browser__browser_batch:17 mcp__Claude_Browser__computer:1 mcp__Claude_Browser__javascript_tool:1 mcp__Claude_Browser__preview_start:2 mcp__Claude_Browser__tabs_context:1 mcp__ccd_directory__change_directory:1)
+- Commits: 55364b3 2bdd9e3 39e5fc1 4f78c94
+- Prompts (5):
+  - <system-reminder> The user started this session without choosing a project folder, so your working directory is a scratc …<+2358c>… ава и воровство не беспокойся - все свое
+  - <system-reminder> The session's working directory has changed to /Users/undermind/Documents/wuji-project (by the user).  …<+591c>… plied on top of them. </system-reminder>
+  - добавь SESSION.md
+  - настрой деплой на vercel
+  - https://vercel.com/casa-kh-d-projects/wuji-project
+

@@ -48,6 +48,8 @@ src/
 
 ## Деплой на Vercel
 
+Продакшен: **https://wuji-project.vercel.app**
+
 В репозитории лежит `vercel.json`: фреймворк `vite`, сборка `npm run build`,
 каталог `dist`, плюс rewrite всех путей на `index.html` — чтобы прямой заход по
 адресу отдавал приложение, а не 404.

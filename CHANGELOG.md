@@ -10,6 +10,7 @@
 - `vercel.json` — конфигурация деплоя на Vercel (framework `vite`, сборка в `dist`,
   rewrite всех путей на `index.html`).
 - Раздел «Деплой на Vercel» в `README.md`.
+- Продакшен развёрнут: https://wuji-project.vercel.app (автодеплой из `main`).
 
 ## [0.1.0] - 2026-09-10
 

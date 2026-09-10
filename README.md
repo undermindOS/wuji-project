@@ -46,6 +46,31 @@ src/
     └── StatsSection.tsx         счётчики
 ```
 
+## Деплой на Vercel
+
+В репозитории лежит `vercel.json`: фреймворк `vite`, сборка `npm run build`,
+каталог `dist`, плюс rewrite всех путей на `index.html` — чтобы прямой заход по
+адресу отдавал приложение, а не 404.
+
+Подключение (один раз):
+
+1. Открыть [vercel.com/new](https://vercel.com/new) и выбрать репозиторий
+   `undermindOS/wuji-project` — или сразу по прямой ссылке:
+   [vercel.com/new/git/external?repository-url=https://github.com/undermindOS/wuji-project](https://vercel.com/new/git/external?repository-url=https://github.com/undermindOS/wuji-project)
+2. Настройки не трогать — Vercel прочитает их из `vercel.json`.
+3. Нажать **Deploy**.
+
+Дальше деплой автоматический: push в `main` — продакшен, push в любую другую
+ветку — preview-сборка со своим адресом.
+
+### Про пути к ассетам
+
+В `vite.config.ts` стоит `base: './'` — так было в оригинальной сборке, поэтому
+в собранном `index.html` пути относительные (`./assets/…`). На корневом домене и
+на одноуровневых адресах (`/skills`) это работает. Если появятся вложенные
+маршруты (`/docs/intro`), относительный путь начнёт резолвиться от `/docs/` и
+ассеты отдадут 404 — тогда нужно поменять `base` на `'/'`.
+
 ## Заглушки
 
 Всё ниже перенесено из оригинала как есть — реальных адресов там нет,

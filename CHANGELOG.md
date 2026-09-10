@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+### Добавлено
+
+- `vercel.json` — конфигурация деплоя на Vercel (framework `vite`, сборка в `dist`,
+  rewrite всех путей на `index.html`).
+- Раздел «Деплой на Vercel» в `README.md`.
+
 ## [0.1.0] - 2026-09-10
 
 ### Добавлено

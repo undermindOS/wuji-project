@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 140 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 91%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 91%;
+    --accent: 0 0% 10%;
+    --accent-foreground: 0 0% 91%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 10%;
+    --input: 0 0% 10%;
+    --ring: 140 100% 50%;
+    --radius: 0;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    background-color: #000000;
+    color: #ffffff;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    line-height: 1.6;
+    letter-spacing: 0.04em;
+    overflow-x: hidden;
+    cursor: url('/images/cursor-win98.png') 0 0, auto;
+  }
+
+  a,
+  button,
+  [role='button'] {
+    cursor: url('/images/cursor-win98.png') 0 0, pointer;
+  }
+
+  ::selection {
+    background-color: rgba(0, 255, 65, 0.3);
+    color: #ffffff;
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: 'DotGothic16', monospace;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+  }
+
+  .font-data {
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .phosphor-glow {
+    text-shadow: 0 0 20px rgba(0, 255, 65, 0.3), 0 0 60px rgba(0, 255, 65, 0.1);
+  }
+
+  .phosphor-glow-white {
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 0 60px rgba(255, 255, 255, 0.1);
+  }
+
+  .scanline-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.03) 0px,
+      rgba(0, 0, 0, 0.03) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  }
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import BrandMark from './BrandMark';
 
 interface NavigationProps {
@@ -61,6 +62,9 @@ export default function Navigation({ onNavigate, selectedOS }: NavigationProps) 
 
       {/* Desktop links */}
       <div className="hidden md:flex items-center gap-8">
+        <Link to="/workspace" className="font-data text-[12px] text-phosphor tracking-[0.08em] hover:text-white transition-colors duration-300">
+          WORKSPACE ↗
+        </Link>
         {navLinks.map((link) => (
           <a
             key={link.label}
@@ -119,6 +123,9 @@ export default function Navigation({ onNavigate, selectedOS }: NavigationProps) 
               )}
             </div>
           )}
+          <Link to="/workspace" onClick={() => setMobileOpen(false)} className="font-data text-[13px] text-phosphor tracking-[0.08em] hover:text-white transition-colors duration-300">
+            WORKSPACE ↗
+          </Link>
           {navLinks.map((link) => (
             <a
               key={link.label}

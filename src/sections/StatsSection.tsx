@@ -5,10 +5,10 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 gsap.registerPlugin(ScrollTrigger);
 
 const STATS = [
-  { value: 50, suffix: '+', label: 'SKILL_PACKS' },
-  { value: 4, suffix: '', label: 'AI_PLATFORMS' },
-  { value: 0, suffix: '', label: 'COST_ITS_FREE', prefix: '$' },
-  { value: Infinity, suffix: '', label: 'POSSIBILITIES', display: '∞' },
+  { value: 5, label: 'EVIDENCE_LABELS' },
+  { value: 3, label: 'LINKED_PANELS' },
+  { value: 0, label: 'CONFIDENCE_SCORES' },
+  { value: 0, label: 'STAFF_LISTS_SENT_TO_THE_MODEL' },
 ];
 
 export default function StatsSection() {
@@ -20,12 +20,8 @@ export default function StatsSection() {
       STATS.forEach((stat, i) => {
         const el = valueRefs.current[i];
         if (!el) return;
-        if (stat.display) {
-          gsap.from(el, { opacity: 0, duration: 1, delay: i * 0.15, ease: 'power2.out', scrollTrigger: { trigger: sectionRef.current, start: 'top 85%', toggleActions: 'play none none none' } });
-          return;
-        }
         const counter = { val: 0 };
-        gsap.to(counter, { val: stat.value, duration: 2, delay: i * 0.15, ease: 'power2.out', snap: { val: 1 }, onUpdate: () => { if (el) el.textContent = `${stat.prefix || ''}${Math.round(counter.val)}${stat.suffix}`; }, scrollTrigger: { trigger: sectionRef.current, start: 'top 85%', toggleActions: 'play none none none' } });
+        gsap.to(counter, { val: stat.value, duration: 2, delay: i * 0.15, ease: 'power2.out', snap: { val: 1 }, onUpdate: () => { if (el) el.textContent = `${Math.round(counter.val)}`; }, scrollTrigger: { trigger: sectionRef.current, start: 'top 85%', toggleActions: 'play none none none' } });
       });
     }, sectionRef);
     return () => ctx.revert();
@@ -38,9 +34,10 @@ export default function StatsSection() {
           {STATS.map((stat, i) => (
             <div key={stat.label} className="text-center">
               <span ref={(el) => { valueRefs.current[i] = el; }} className="font-display block" style={{ color: '#FF8C00', fontSize: 'clamp(2rem, 5vw, 4rem)', lineHeight: 1.2 }}>
-                {stat.display ? stat.display : `${stat.prefix || ''}0${stat.suffix}`}
+                0
               </span>
-              <span className="font-data text-[11px] text-crt tracking-[0.08em]">{stat.label}</span>
+              {/* a zero-width space after each underscore: long labels wrap at a word on a phone */}
+              <span className="font-data text-[11px] text-crt tracking-[0.08em]">{stat.label.replaceAll('_', '_\u200B')}</span>
             </div>
           ))}
         </div>

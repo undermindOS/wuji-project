@@ -2,16 +2,15 @@ import { useState } from 'react';
 
 interface NavigationProps {
   onNavigate: (sectionId: string) => void;
-  selectedOS: 'uppermind' | 'undermind' | null;
 }
 
-export default function Navigation({ onNavigate, selectedOS }: NavigationProps) {
+export default function Navigation({ onNavigate }: NavigationProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navLinks = [
-    { label: 'SKILLS', href: '#skills' },
-    { label: 'DOCS', href: 'https://github.com', external: true },
-    { label: 'GITHUB', href: 'https://github.com', external: true },
+    { label: 'EVIDENCE', href: '#evidence' },
+    { label: 'RUN', href: '#run' },
+    { label: 'GITHUB', href: 'https://github.com/undermindOS/wuji-project', external: true },
   ];
 
   const handleClick = (e: React.MouseEvent, link: (typeof navLinks)[number]) => {
@@ -50,30 +49,6 @@ export default function Navigation({ onNavigate, selectedOS }: NavigationProps) 
           className="w-20 h-20 relative -top-3"
           style={{ marginLeft: '-10px', imageRendering: 'pixelated' }}
         />
-      </div>
-
-      {/* Selected OS indicator */}
-      <div className="hidden lg:block absolute left-1/2 -translate-x-1/2">
-        {selectedOS ? (
-          <div className="font-data text-[11px]">
-            <span className="text-crt">YOU_HAVE_SELECTED </span>
-            {selectedOS === 'undermind' ? (
-              <>
-                <span className="text-white">UNDERMIND </span>
-                <span style={{ color: '#FF3333' }}>OS</span>
-              </>
-            ) : (
-              <>
-                <span className="text-white">UPPERMIND </span>
-                <span className="text-phosphor">OS</span>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="font-data text-[11px] text-gridline">
-            SELECT_YOUR_OS
-          </div>
-        )}
       </div>
 
       {/* Desktop links */}
@@ -119,23 +94,6 @@ export default function Navigation({ onNavigate, selectedOS }: NavigationProps) 
             borderBottom: '1px solid #1A1A1A',
           }}
         >
-
-          {selectedOS && (
-            <div className="font-data text-[11px]">
-              <span className="text-crt">YOU_HAVE_SELECTED </span>
-              {selectedOS === 'undermind' ? (
-                <>
-                  <span className="text-white">UNDERMIND </span>
-                  <span style={{ color: '#FF3333' }}>OS</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-white">UPPERMIND </span>
-                  <span className="text-phosphor">OS</span>
-                </>
-              )}
-            </div>
-          )}
           {navLinks.map((link) => (
             <a
               key={link.label}

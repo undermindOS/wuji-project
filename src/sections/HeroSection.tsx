@@ -2,11 +2,7 @@ import { useState, useCallback } from 'react';
 import ProgressiveCodeCanvas from '../components/ProgressiveCodeCanvas';
 import Typewriter from '../components/Typewriter';
 
-interface HeroSectionProps {
-  selectedOS: 'uppermind' | 'undermind' | null;
-}
-
-export default function HeroSection({ selectedOS }: HeroSectionProps) {
+export default function HeroSection() {
   const [typingDone, setTypingDone] = useState(false);
 
   const handleComplete = useCallback(() => {
@@ -47,34 +43,21 @@ export default function HeroSection({ selectedOS }: HeroSectionProps) {
 
       {/* Content */}
       <div className="relative z-10 text-center px-4" style={{ maxWidth: '900px' }}>
-        {/* Uppermind */}
         <h1
-          className="font-display phosphor-glow-white mb-1"
+          className="font-display phosphor-glow-white mb-2"
           style={{
-            fontSize: 'clamp(2.5rem, 9vw, 7rem)',
-            lineHeight: 1.1,
+            fontSize: 'clamp(3rem, 12vw, 9rem)',
+            lineHeight: 1.05,
           }}
         >
-          UPPERMIND{' '}
-          <span className="text-phosphor">OS</span>
-        </h1>
-
-        {/* Undermind */}
-        <h1
-          className="font-display phosphor-glow mb-2"
-          style={{
-            fontSize: 'clamp(2.5rem, 9vw, 7rem)',
-            lineHeight: 1.1,
-          }}
-        >
-          UNDERMIND{' '}
-          <span style={{ color: '#FF3333' }}>OS</span>
+          <span className="text-phosphor">WU</span>
+          <span style={{ color: '#FF3333' }}>JI</span>
         </h1>
 
         {/* Tagline */}
         <p className="font-mono text-[18px] md:text-[20px] text-phosphor tracking-[0.08em] mt-6">
           <Typewriter
-            text="> AI_SKILL_PRESETS_FOR_WIDE_SPECTRUM_TASKS"
+            text="> DECISIONS_YOU_CAN_CHECK"
             speed={20}
             delay={800}
             onComplete={handleComplete}
@@ -82,17 +65,9 @@ export default function HeroSection({ selectedOS }: HeroSectionProps) {
           />
         </p>
 
-        {/* Active mode */}
-        {selectedOS && (
-          <p className="font-data text-[11px] mt-4 transition-all duration-500">
-            <span className="text-crt">ACTIVE_MODE: </span>
-            {selectedOS === 'uppermind' ? (
-              <span className="text-phosphor">UPPERMIND OS</span>
-            ) : (
-              <span style={{ color: '#FF3333' }}>UNDERMIND OS</span>
-            )}
-          </p>
-        )}
+        <p className="font-mono text-[18px] md:text-[20px] text-crt mt-6 mx-auto leading-relaxed" style={{ maxWidth: '640px' }}>
+          Describe a change in plain language. Get options with their evidence attached.
+        </p>
 
         {/* Scroll cue */}
         <div

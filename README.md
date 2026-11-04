@@ -1,9 +1,7 @@
-# WU JI — Undermind / Uppermind OS
+# WuJi
 
-Лендинг «Undermind / Uppermind OS — Universal AI Skill Presets».
-
-Исходники восстановлены 1:1 с задеплоенной сборки: разметка, тексты, стили,
-анимации и ассеты перенесены без изменений.
+Лендинг WuJi: решения с ИИ, которые можно проверить. Оформление и анимации
+сохранены с восстановленной сборки (CRT, цифровой дождь), тексты описывают продукт.
 
 ## Стек
 
@@ -29,20 +27,19 @@ src/
 ├── main.tsx                     точка входа
 ├── App.tsx                      роутинг
 ├── index.css                    базовые стили, CRT-тема
-├── pages/Home.tsx               сборка страницы, Lenis
+├── pages/Home.tsx               сборка лендинга, Lenis
 ├── components/
 │   ├── Navigation.tsx           шапка, мобильное меню
 │   ├── ScanlineOverlay.tsx      CRT-развёртка поверх страницы
 │   ├── ProgressiveCodeCanvas.tsx цифровой дождь (canvas, 4 фазы)
 │   ├── Typewriter.tsx           посимвольный набор текста
 │   ├── SectionLabel.tsx         подпись секции
-│   ├── SkillCard.tsx            карточка скилла
 │   └── Footer.tsx               подвал
 └── sections/
-    ├── OSSelectorSection.tsx    выбор OS, GSAP-переключение панелей
-    ├── HeroSection.tsx          заголовок
-    ├── SkillGridSection.tsx     сетка скиллов с фильтрами
-    ├── TerminalPreviewSection.tsx имитация установки в терминале
+    ├── HeroSection.tsx          WU JI и обещание продукта
+    ├── ContrastSection.tsx      Black Box против WuJi
+    ├── EvidenceSection.tsx      пять меток доказательств
+    ├── RunLogSection.tsx        журнал запуска, синтетические данные
     └── StatsSection.tsx         счётчики
 ```
 
@@ -75,16 +72,3 @@ src/
 вложенные маршруты ломали загрузку ассетов, поэтому для Vercel он заменён.
 Если проект когда-нибудь понадобится отдавать не из корня домена, а из подпапки —
 относительный `base` придётся вернуть.
-
-## Заглушки
-
-Всё ниже перенесено из оригинала как есть — реальных адресов там нет,
-везде стоит `https://github.com`:
-
-| Место | Файл |
-| --- | --- |
-| Пункты меню `DOCS`, `GITHUB` | `src/components/Navigation.tsx` |
-| Кнопка `INSTALL_UPPERMIND_OS →` | `src/sections/OSSelectorSection.tsx` |
-| Кнопка `INSTALL_UNDERMIND_OS →` | `src/sections/OSSelectorSection.tsx` |
-| Ссылка `INSTALL_→` в каждой карточке | `src/components/SkillCard.tsx` |
-| Кнопки `EXPLORE_ON_GITHUB →` и `READ_DOCS →` | `src/sections/TerminalPreviewSection.tsx` |

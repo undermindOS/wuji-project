@@ -6,19 +6,20 @@ import Typewriter from '../components/Typewriter';
 
 gsap.registerPlugin(ScrollTrigger);
 
+/* What the workspace journal records: observed events, never the model's
+   thoughts. The week is synthetic, and the section says so on screen. */
 const TERMINAL_LINES = [
-  '$ umos install deep_research',
-  '> fetching skill manifest... OK',
-  '> validating compatibility... [GPT|GEMINI|CLAUDE|KIMI] OK',
-  '> installing dependencies...',
-  '  └── pattern_extraction.v1',
-  '  └── source_validator.v2',
-  '  └── citation_engine.v1',
-  '> skill pack ready.',
-  '> usage: apply_skill("deep_research") in any AI session.',
+  '> source: 18 people recognised, 2 rates missing',
+  '> task: "Anna is out on Tuesday. Keep every shift covered."',
+  '> draft: conditions written, every quote found in the task',
+  '> you: conditions confirmed, version 2',
+  '> solver: 2 valid options',
+  '> validator: 2 of 2 pass, tested separately',
+  '> unknown: pay for 2 people, no rate on file',
+  '> waiting for your approval',
 ];
 
-export default function TerminalPreviewSection() {
+export default function RunLogSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const [started, setStarted] = useState(false);
@@ -56,9 +57,9 @@ export default function TerminalPreviewSection() {
   }, [started, visibleLines]);
 
   return (
-    <section ref={sectionRef} className="relative w-full py-[12vh]" style={{ background: '#000000' }}>
+    <section id="run" ref={sectionRef} className="relative w-full py-[12vh]" style={{ background: '#000000' }}>
       <div className="max-w-[1200px] mx-auto px-6 md:px-10">
-        <SectionLabel text="// SKILL_IN_ACTION" />
+        <SectionLabel text="// ONE_WEEK_OF_SHIFTS // SYNTHETIC_DATA" />
 
         {/* Terminal window */}
         <div ref={terminalRef} className="mx-auto max-w-[800px]" style={{ border: '1px solid #1A1A1A' }}>
@@ -69,7 +70,7 @@ export default function TerminalPreviewSection() {
               <span className="w-2 h-2 rounded-full" style={{ background: '#1A1A1A' }} />
               <span className="w-2 h-2 rounded-full" style={{ background: '#1A1A1A' }} />
             </div>
-            <span className="font-data text-[10px] text-crt mx-auto pr-12">skill_installation</span>
+            <span className="font-data text-[10px] text-crt mx-auto pr-12">run_journal</span>
           </div>
 
           {/* Output */}
@@ -85,35 +86,36 @@ export default function TerminalPreviewSection() {
                 </div>
               ))}
               {allDone && (
-                <span>$ <span className="animate-blink">_</span></span>
+                <span className="animate-blink">_</span>
               )}
             </div>
           </div>
         </div>
 
+        {/* Status */}
+        <p className="font-data text-[11px] text-crt text-center tracking-[0.08em] mt-10">
+          IN_DEVELOPMENT // THE_WORKSPACE_RUNS_LOCALLY // NOT_HOSTED_YET
+        </p>
+
         {/* CTA */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
           <a
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="https://khrestenkov.com/wuji"
             className="font-data text-[13px] uppercase px-8 py-3.5 transition-all duration-200 hover:-translate-y-0.5"
             style={{ background: '#FF8C00', color: '#000000' }}
             onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#FFA500'; }}
             onMouseLeave={(e) => { (e.target as HTMLElement).style.background = '#FF8C00'; }}
           >
-            EXPLORE_ON_GITHUB →
+            READ_THE_PRODUCT_PAGE →
           </a>
           <a
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="mailto:daniil@khrestenkov.com"
             className="font-data text-[13px] uppercase px-8 py-3.5 border transition-all duration-200"
             style={{ color: '#E8E8E8', borderColor: '#1A1A1A' }}
             onMouseEnter={(e) => { (e.target as HTMLElement).style.color = '#FF8C00'; (e.target as HTMLElement).style.borderColor = '#FF8C00'; }}
             onMouseLeave={(e) => { (e.target as HTMLElement).style.color = '#E8E8E8'; (e.target as HTMLElement).style.borderColor = '#1A1A1A'; }}
           >
-            READ_DOCS →
+            WRITE_TO_THE_OFFICE →
           </a>
         </div>
       </div>

@@ -1,0 +1,33 @@
+{
+  "checked_date": "2026-11-02",
+  "cold_restart": true,
+  "project_id": "26f44bc1-1794-4bf3-a3dc-a1f335a2902b",
+  "source_id": "ef5e88b8-d518-4254-a594-7113d45229d0",
+  "source_version": 3,
+  "source_hash": "c72de2f7a6c04145db133b1f5f66031d9c3a50402369f4ae3388cd8a450969d4",
+  "task_id": "66b26854-cee0-461c-8e4c-c965b2b19d6a",
+  "task_version": 9,
+  "approval_id": "a6a084df-3e0a-4652-bbd7-d66e94448a62",
+  "exports": [
+    {
+      "format": "csv",
+      "sha256": "fa5d0e7c41c2be1a7117653b33b75cd911cee5c2d82396e707890d7fa89b0e5f",
+      "bytes": 9043,
+      "reimport_validation": "pass",
+      "payroll_minor": 3104000,
+      "minutes": 6720
+    },
+    {
+      "format": "xlsx",
+      "sha256": "957612d061e9cb80d3c8df0addf44b1d59ad7b54b75cd405c1f3962d5e0c2ff3",
+      "bytes": 22573,
+      "reimport_validation": "pass",
+      "payroll_minor": 3104000,
+      "minutes": 6720
+    }
+  ],
+  "backend_tests": 120,
+  "typescript_tests": 39,
+  "live_api_calls": false,
+  "github_ci_run": false
+}

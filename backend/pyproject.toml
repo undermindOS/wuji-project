@@ -1,0 +1,24 @@
+[project]
+name = "wuji-backend"
+version = "0.5.0"
+description = "Local WUJI workspace with confirmed intent drafts and independently validated calculations"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.34,<1",
+  "pydantic>=2.10,<3",
+  "sqlalchemy>=2.0,<2.1",
+  "psycopg[binary]>=3.2,<4",
+  "alembic>=1.14,<2",
+  "python-multipart>=0.0.20,<1",
+  "openpyxl>=3.1,<4",
+  "ortools>=9.14,<10",
+  "openai>=2,<3",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "httpx>=0.28,<1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

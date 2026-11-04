@@ -4,3 +4,8 @@ dist
 *.local
 *.log
 *.tsbuildinfo
+.wuji-data/
+.env
+.venv/
+__pycache__/
+.pytest_cache/

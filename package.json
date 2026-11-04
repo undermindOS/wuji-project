@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "api": "python3 scripts/dev-api.py",
+    "ai:preview": "uv run --project backend python backend/tests/serve_intent_preview.py",
+    "test:api": "uv run --project backend pytest -q backend/tests"
   },
   "dependencies": {
     "gsap": "^3.15.0",

@@ -277,12 +277,21 @@ class CalculatedScenario(ApiModel):
     evidence: list[ChangeEvidence]
 
 
+class ConflictCondition(ApiModel):
+    kind: Literal['source_pin', 'fixed_assignment', 'absence', 'coverage', 'role', 'availability', 'hours']
+    shift_id: str | None = None
+    employee_id: str | None = None
+    role: str | None = None
+    removal_check: Literal['solution', 'solution_if_confirmed', 'no_solution']
+
+
 class SolveIssue(ApiModel):
     code: str
     message: str
     shift_ids: list[str] = Field(default_factory=list)
     employee_ids: list[str] = Field(default_factory=list)
     source_refs: list[SourceRef] = Field(default_factory=list)
+    conditions: list[ConflictCondition] = Field(default_factory=list)
 
 
 class SolveResult(ApiModel):

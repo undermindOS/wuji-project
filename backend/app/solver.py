@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from ortools.sat.python import cp_model
 
+from .diagnosis import Inconclusive, explain, unknown_confirmed
 from .schemas import CalculatedScenario, Scenario, SearchAttempt, SolveIssue, SolveResult
 from .validator import evaluate
 from .engine_info import ENGINE_VERSION
@@ -42,7 +43,9 @@ def input_problem(source, task):
     return None
 
 
-def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambda solver: None, event=lambda code, message: None):
+def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambda solver: None, event=lambda code, message: None, probe=False):
+    """With probe, only asks whether a validated schedule exists for exactly these inputs: the same
+    model and the same validator, no objective, no question about unknowns, no explanation."""
     started = time.monotonic()
     deadline = started + max_seconds
     attempts, scenarios, issues = [], [], []
@@ -55,7 +58,7 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
         if cancelled():
             raise CalculationCancelled()
 
-    problem = input_problem(source, task)
+    problem = None if probe else input_problem(source, task)
     if problem:
         issues.append(SolveIssue(code='invalid_input', message=problem))
         return finish('invalid')
@@ -129,13 +132,14 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
             issues.append(SolveIssue(code='fixed_pin_conflict', message='Закрепление в условиях называет не того сотрудника, что закрепление исходника. Оба обязательных условия сохранены.',
                 shift_ids=[s.id], employee_ids=sorted({s.employee_id, fixed}), source_refs=list(s.source_refs.values())))
 
-    def search(current_model, priority, phase, expr, seconds):
-        checkpoint()
-        current_model.minimize(expr)
+    def run(current_model, seconds, light=probe):
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = max(0, seconds)
         solver.parameters.num_search_workers = 1
         solver.parameters.random_seed = 0
+        if light:
+            # A question beside the main search: half the cost at 50×100, and the same model.
+            solver.parameters.cp_model_probing_level = 0
         on_solver(solver)
         checkpoint()
         try:
@@ -143,7 +147,13 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
         finally:
             on_solver(None)
         checkpoint()
-        name = solver.status_name(status)
+        return solver, solver.status_name(status)
+
+    def search(current_model, priority, phase, expr, seconds):
+        checkpoint()
+        if not probe:
+            current_model.minimize(expr)
+        solver, name = run(current_model, seconds)
         assignments = None
         if name in {'OPTIMAL', 'FEASIBLE'}:
             assignments = {sid: eid for (sid, eid), var in choices.items() if solver.value(var)}
@@ -153,18 +163,33 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
         event('search', priority + ' / ' + phase + ': ' + name)
         return name, assignments, solver.value(expr) if assignments is not None else None
 
+    def probed(inputs, conditions):
+        return solve(inputs, conditions, max_seconds=max(0, deadline - time.monotonic()), cancelled=cancelled, on_solver=on_solver, probe=True)
+
     def no_clarification_can_help():
         # Taking every unknown as available gives a wider problem that contains every way the unknowns
         # can turn out, so only its INFEASIBLE proves that asking cannot help. Running out of time here
         # proves nothing and keeps the question. Nothing found by this search is ever published.
-        assumed = source.model_copy(update={'employees': [e.model_copy(update={'availability': {
-            s.id: 'available' if e.availability.get(s.id, 'unknown') == 'unknown' else e.availability[s.id]
-            for s in source.shifts}}) for e in source.employees]})
-        outcome = solve(assumed, task.model_copy(update={'objective': 'min_changes'}),
-            max_seconds=max(0, deadline - time.monotonic()), cancelled=cancelled, on_solver=on_solver).outcome
+        outcome = probed(unknown_confirmed(source), task.model_copy(update={'objective': 'min_changes'})).outcome
         event('search', 'Допущение «вся неизвестная доступность подтвердилась»: '
             + {'infeasible': 'решения всё равно нет.', 'solutions': 'решение появляется.'}.get(outcome, 'поиск не дал ответа.'))
         return outcome == 'infeasible'
+
+    def within_budget(step):
+        def guarded(*inputs):
+            # At zero time CP-SAT still answers what presolve alone can settle.
+            if time.monotonic() >= deadline:
+                raise Inconclusive('не хватило лимита времени')
+            return step(*inputs)
+        return guarded
+
+    def conflicts():
+        try:
+            return explain(source, task, within_budget(probed),
+                within_budget(lambda current: run(current, deadline - time.monotonic(), light=True)), bool(unknown), event)
+        except Inconclusive as reason:
+            event('diagnosis', 'Диагностика причин остановлена: ' + str(reason) + '. Выдан общий ответ.')
+            return []
 
     if task.objective == 'min_cost' and not costs_known:
         issues.append(SolveIssue(code='cost_required', message='Для выбранного приоритета минимальной оплаты нужны ставки всех сотрудников.'))
@@ -179,15 +204,20 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
         primary, secondary = (change_expr, cost_expr) if priority == 'min_changes' else (cost_expr, change_expr)
         remaining = max(0, deadline - time.monotonic())
         # Reserve time for the other priority and deterministic secondary minimization.
-        seconds = remaining / ((len(priorities) - index) * (2 if costs_known else 1))
+        seconds = remaining / ((len(priorities) - index) * (2 if costs_known and not probe else 1))
         status, assignments, value = search(current, priority, 'primary', primary, seconds)
         if status == 'INFEASIBLE':
+            if probe:
+                return finish('infeasible')
             if unknown and not direct_conflict and not no_clarification_can_help():
                 issues.append(SolveIssue(code='availability_unknown', message='При подтверждённой доступности решения нет. Уточните неизвестную доступность; невозможность для этих неизвестных данных не утверждается.',
                     shift_ids=sorted({s.id for s, e in unknown}), employee_ids=sorted({e.id for s, e in unknown}),
                     source_refs=[ref for s, e in unknown for ref in [e.source_refs.get('availability.' + s.id)] if ref is not None][:100]))
                 return finish('needs_clarification')
-            if not direct_conflict:
+            named = conflicts()
+            if named:
+                issues[:] = [i for i in issues if i.code not in {'pinned_absence', 'fixed_absence', 'fixed_pin_conflict'}] + named
+            elif not direct_conflict:
                 issues.append(SolveIssue(code='infeasible', message='Доказана невозможность при сохранении всех введённых обязательных условий'
                     + (', даже если вся неизвестная доступность подтвердится' if unknown else '') + '. Минимальный набор причин не определялся.'))
             return finish('infeasible')
@@ -196,7 +226,7 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
             return finish('invalid')
         if assignments is None:
             continue
-        if costs_known and status == 'OPTIMAL' and time.monotonic() < deadline:
+        if costs_known and not probe and status == 'OPTIMAL' and time.monotonic() < deadline:
             current.add_linear_constraint(primary, value, value)
             _, tied, _ = search(current, priority, 'tiebreak', secondary,
                 max(0, deadline - time.monotonic()) / (len(priorities) - index))

@@ -366,6 +366,25 @@ export interface components {
       /** Acknowledgedruleids */
       acknowledgedRuleIds: string[];
     };
+    /** ConflictCondition */
+    ConflictCondition: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "source_pin" | "fixed_assignment" | "absence" | "coverage" | "role" | "availability" | "hours";
+      /** Shiftid */
+      shiftId?: string | null;
+      /** Employeeid */
+      employeeId?: string | null;
+      /** Role */
+      role?: string | null;
+      /**
+       * Removalcheck
+       * @enum {string}
+       */
+      removalCheck: "solution" | "solution_if_confirmed" | "no_solution";
+    };
     /** CreateRevision */
     CreateRevision: {
       /** Sourceversionid */
@@ -983,6 +1002,8 @@ export interface components {
       employeeIds?: string[];
       /** Sourcerefs */
       sourceRefs?: components["schemas"]["SourceRef"][];
+      /** Conditions */
+      conditions?: components["schemas"]["ConflictCondition"][];
     };
     /** SolveResult */
     SolveResult: {

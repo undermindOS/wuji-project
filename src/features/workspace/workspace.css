@@ -127,6 +127,7 @@
 .workspace .ws-notice { border-left: 2px solid var(--ws-orange); background: rgba(255,140,0,.04); padding: 11px 12px; margin: 13px 0; font-size: 11px; line-height: 1.6; color: #ccc; }
 .workspace .ws-notice strong { display: block; color: var(--ws-orange); font-size: 12px; font-weight: 400; }
 .workspace .ws-notice .ws-text-button { margin-top: 6px; }
+.workspace .ws-run-report .ws-notice p { white-space: pre-line; }
 .workspace .ws-evidence { border-top: 1px solid #483017; margin-top: 26px; padding-top: 2px; scroll-margin: 10px; }
 .workspace .ws-evidence .ws-rule-heading { margin-top: 17px; }
 .workspace .ws-evidence h3 { font-size: 18px; color: #fff; font-weight: 400; margin-bottom: 11px; }

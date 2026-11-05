@@ -3088,6 +3088,72 @@
         ],
         "title": "ConfirmIntent"
       },
+      "ConflictCondition": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "source_pin",
+              "fixed_assignment",
+              "absence",
+              "coverage",
+              "role",
+              "availability",
+              "hours"
+            ],
+            "title": "Kind"
+          },
+          "shiftId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shiftid"
+          },
+          "employeeId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employeeid"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "removalCheck": {
+            "type": "string",
+            "enum": [
+              "solution",
+              "solution_if_confirmed",
+              "no_solution"
+            ],
+            "title": "Removalcheck"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "removalCheck"
+        ],
+        "title": "ConflictCondition"
+      },
       "CreateRevision": {
         "properties": {
           "sourceVersionId": {
@@ -4877,6 +4943,13 @@
             },
             "type": "array",
             "title": "Sourcerefs"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ConflictCondition"
+            },
+            "type": "array",
+            "title": "Conditions"
           }
         },
         "additionalProperties": false,

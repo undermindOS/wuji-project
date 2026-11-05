@@ -114,6 +114,25 @@ def test_changed_conditions_mark_old_result_historical_and_block_stale_start(cli
     assert load(client, pid, new_id).json()['status'] == 'completed'
 
 
+def test_named_conflict_survives_storage_and_reaches_the_client(client, settings, files):
+    pid, _, snapshot = imported(client, files)
+    saved = client.post('/api/v1/projects/' + pid + '/tasks', json={'expectedSourceVersionId': snapshot['source']['id'],
+        'expectedTaskId': snapshot['task']['id'], 'request': 'Закрепить смену за Анной и отметить её отсутствие',
+        'absence': {'employeeId': 'anna', 'shiftIds': ['s05']}, 'fixedAssignments': {'s05': 'anna'}})
+    assert saved.status_code == 201, saved.text
+    rid = start(client, pid, client.get('/api/v1/projects/' + pid + '/workspace').json()).json()['id']
+    work_once(settings, client.app.state.sessions)
+    run = load(client, pid, rid).json()
+    assert run['status'] == 'completed' and run['result']['outcome'] == 'infeasible'
+    assert any(e['code'] == 'diagnosis' for e in run['events']) and len(run['result']['attempts']) == 1
+    issue, = run['result']['issues']
+    assert issue['code'] == 'fixed_absence' and issue['shiftIds'] == ['s05'] and issue['employeeIds'] == ['anna']
+    assert 'Анна Волкова' in issue['message'] and issue['sourceRefs'] == []
+    assert issue['conditions'] == [
+        {'kind': 'fixed_assignment', 'shiftId': 's05', 'employeeId': 'anna', 'role': None, 'removalCheck': 'solution'},
+        {'kind': 'absence', 'shiftId': 's05', 'employeeId': 'anna', 'role': None, 'removalCheck': 'solution'}]
+
+
 def test_partial_acceptance_creates_new_conditions_and_new_queued_calculation_atomically(client, settings, files):
     pid, _, snapshot = imported(client, files)
     rid = start(client, pid, snapshot).json()['id']

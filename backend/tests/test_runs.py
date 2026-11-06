@@ -35,7 +35,7 @@ def test_queue_persists_separate_worker_computes_and_api_restart_preserves_resul
     assert result['status'] == 'completed'
     assert result['result']['outcome'] == 'solutions'
     assert result['sourceHash'] == snapshot['source']['contentHash']
-    assert result['engineVersion'].startswith('schedule-cpsat/3;ortools/')
+    assert result['engineVersion'].startswith('schedule-cpsat/4;ortools/')
     assert all(s['validation']['status'] == 'pass' for s in result['result']['scenarios'])
     assert not work_once(settings, client.app.state.sessions)
     with TestClient(create_app(settings)) as restarted:

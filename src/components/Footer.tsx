@@ -11,7 +11,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
           <span className="font-data text-[11px] text-crt">
-            © 2026 Liberon.Tech by Grupo KhD
+            © 2026 Liberon.Tech by Khrestenkov &amp; Co
           </span>
 
           <span className="font-data text-[12px] text-gridline hidden md:block">

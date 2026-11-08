@@ -1,22 +1,19 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import Lenis from 'lenis';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import ScanlineOverlay from '../components/ScanlineOverlay';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
-import OSSelectorSection from '../sections/OSSelectorSection';
 import HeroSection from '../sections/HeroSection';
-import SkillGridSection from '../sections/SkillGridSection';
-import TerminalPreviewSection from '../sections/TerminalPreviewSection';
+import ContrastSection from '../sections/ContrastSection';
+import EvidenceSection from '../sections/EvidenceSection';
+import RunLogSection from '../sections/RunLogSection';
 import StatsSection from '../sections/StatsSection';
 
 gsap.registerPlugin(ScrollTrigger);
 
-type OSType = 'uppermind' | 'undermind';
-
 export default function Home() {
-  const [selectedOS, setSelectedOS] = useState<OSType | null>(null);
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
@@ -42,20 +39,15 @@ export default function Home() {
     }
   }, []);
 
-  const gridFilter = selectedOS ?? 'all';
-  const handleSelectOS = useCallback((os: 'all' | OSType) => {
-    setSelectedOS(os === 'all' ? null : os);
-  }, []);
-
   return (
     <div className="min-h-screen" style={{ background: '#000000' }}>
       <ScanlineOverlay />
-      <Navigation onNavigate={scrollToSection} selectedOS={selectedOS} />
+      <Navigation onNavigate={scrollToSection} />
       <main>
-        <OSSelectorSection selectedOS={selectedOS} onSelect={setSelectedOS} />
-        <HeroSection selectedOS={selectedOS} />
-        <SkillGridSection selectedOS={gridFilter} onSelectOS={handleSelectOS} />
-        <TerminalPreviewSection />
+        <HeroSection />
+        <ContrastSection />
+        <EvidenceSection />
+        <RunLogSection />
         <StatsSection />
       </main>
       <Footer />

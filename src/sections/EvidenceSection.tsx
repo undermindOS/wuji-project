@@ -6,11 +6,11 @@ import SectionLabel from '../components/SectionLabel';
 gsap.registerPlugin(ScrollTrigger);
 
 const LABELS = [
-  { name: 'Changed', description: '> The exact values, assignments, records or files that differ from the source.' },
-  { name: 'Verified', description: '> A check that actually ran, with what it covered and what it found.' },
-  { name: 'Calculated', description: '> A metric derived from the data by a stated formula or model.' },
-  { name: 'Assumption', description: '> A condition set on purpose and not yet confirmed by a fact.' },
-  { name: 'Unknown', description: '> A missing value, or a consequence this model does not assess.' },
+  { name: 'Source', description: '> The file, sheet, row and column the shift came from.' },
+  { name: 'Condition', description: '> The priority behind this option, and any absence that covers the shift.' },
+  { name: 'Check', description: '> Whether the new person is available, with the row that says so. Unknown stays unknown.' },
+  { name: 'Calculation', description: "> The pay difference for this shift, with its terms and the rate's source. A missing rate is never zero." },
+  { name: 'Server check', description: '> How many checks the independent validator ran, its version, the rules it covered and links to the source cells.' },
 ];
 
 export default function EvidenceSection() {
@@ -44,7 +44,8 @@ export default function EvidenceSection() {
       style={{ background: '#000000' }}
     >
       <div className="max-w-[1200px] mx-auto px-6 md:px-10">
-        <SectionLabel text="// EVERY_FINDING_CARRIES_ONE_OF_FIVE_LABELS" />
+        {/* a zero-width space after each underscore: the long label wraps at a word on a phone */}
+        <SectionLabel text={'// EVERY_CALCULATED_CHANGE_CARRIES_FIVE_LABELS'.replaceAll('_', '_\u200B')} />
 
         <div
           ref={gridRef}

@@ -1,0 +1,39 @@
+{
+  "exampleId": "conflict",
+  "sourceVersionId": "demo-source-conflict-v1",
+  "timezone": "Europe/Moscow",
+  "currency": "RUB",
+  "task": {
+    "id": "demo-task-conflict-v1",
+    "sourceVersionId": "demo-source-conflict-v1",
+    "request": "Анна не выйдет в среду, 4 ноября. Её смена закреплена и не может быть передана. Покажи конфликт условий.",
+    "absence": {
+      "employeeId": "anna",
+      "shiftIds": [
+        "s05"
+      ]
+    },
+    "rules": [
+      {
+        "id": "availability",
+        "label": "Подтверждённая доступность",
+        "detail": "Учитывать отсутствие и доступность для каждой смены."
+      },
+      {
+        "id": "pinned",
+        "label": "Закреплённые назначения",
+        "detail": "Смены с отметкой «Закреплено» сохраняют своего сотрудника."
+      },
+      {
+        "id": "hours",
+        "label": "Личные лимиты часов",
+        "detail": "У Дениса — 8 ч в неделю; у остальных — лимит из карточки сотрудника."
+      },
+      {
+        "id": "coverage",
+        "label": "Покрытие и квалификация",
+        "detail": "Все 14 смен закрыты специалистом нужной роли, без пересечений."
+      }
+    ]
+  }
+}

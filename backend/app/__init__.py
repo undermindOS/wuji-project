@@ -1,0 +1,1 @@
+"""WUJI local data service."""

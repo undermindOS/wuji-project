@@ -94,7 +94,7 @@ export default function RunLogSection() {
 
         {/* Status */}
         <p className="font-data text-[11px] text-crt text-center tracking-[0.08em] mt-10">
-          IN_DEVELOPMENT // THE_WORKSPACE_RUNS_LOCALLY // NOT_HOSTED_YET
+          IN_DEVELOPMENT // HOSTED_DEMO_WITH_PREPARED_OPTIONS // LIVE_RUNS_NEED_A_LOCAL_SERVER
         </p>
 
         {/* CTA */}

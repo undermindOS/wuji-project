@@ -6,7 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "check": "npm test && npm run test:api && npm run api:types:check && npm run build",
+    "demo:fixtures": "node --experimental-strip-types scripts/generate-workspace-examples.mjs",
+    "preview": "vite preview",
+    "api": "python3 scripts/dev-api.py",
+    "ai:preview": "uv run --project backend python backend/tests/serve_intent_preview.py",
+    "api:types": "node scripts/generate-api-types.mjs",
+    "api:types:check": "node scripts/generate-api-types.mjs --check",
+    "test:api": "uv run --project backend pytest -q backend/tests"
   },
   "dependencies": {
     "gsap": "^3.15.0",
@@ -20,10 +28,16 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.0",
     "autoprefixer": "^10.4.21",
+    "openapi-typescript": "^6.7.6",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.9.3",
     "vite": "^7.2.7"
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "undici": "^6.29.1"
+    }
   }
 }

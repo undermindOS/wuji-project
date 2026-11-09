@@ -4,3 +4,15 @@ dist
 *.local
 *.log
 *.tsbuildinfo
+.wuji-data/
+.env
+.env.*
+.venv/
+__pycache__/
+.pytest_cache/
+.vercel/
+.claude/
+**/.claude-docs/session-activity.md
+*.pem
+*.sql
+*.dump

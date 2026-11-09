@@ -1,0 +1,39 @@
+{
+  "exampleId": "unknown-availability",
+  "sourceVersionId": "demo-source-unknown-availability-v1",
+  "timezone": "Europe/Moscow",
+  "currency": "RUB",
+  "task": {
+    "id": "demo-task-unknown-availability-v1",
+    "sourceVersionId": "demo-source-unknown-availability-v1",
+    "request": "Анна не выйдет в среду, 4 ноября. Закрой её смену, сохрани закреплённые назначения и лимиты часов. Покажи вариант с меньшим числом перестановок и вариант с меньшими затратами.",
+    "absence": {
+      "employeeId": "anna",
+      "shiftIds": [
+        "s05"
+      ]
+    },
+    "rules": [
+      {
+        "id": "availability",
+        "label": "Подтверждённая доступность",
+        "detail": "Учитывать отсутствие и доступность для каждой смены."
+      },
+      {
+        "id": "pinned",
+        "label": "Закреплённые назначения",
+        "detail": "Смены с отметкой «Закреплено» сохраняют своего сотрудника."
+      },
+      {
+        "id": "hours",
+        "label": "Личные лимиты часов",
+        "detail": "У Дениса — 8 ч в неделю; у остальных — лимит из карточки сотрудника."
+      },
+      {
+        "id": "coverage",
+        "label": "Покрытие и квалификация",
+        "detail": "Все 14 смен закрыты специалистом нужной роли, без пересечений."
+      }
+    ]
+  }
+}

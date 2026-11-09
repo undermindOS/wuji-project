@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import BrandMark from './BrandMark';
 
 interface NavigationProps {
   onNavigate: (sectionId: string) => void;
@@ -31,28 +33,13 @@ export default function Navigation({ onNavigate }: NavigationProps) {
       }}
     >
       {/* Logo */}
-      <div className="flex items-center" style={{ gap: '1px' }}>
-        <div className="text-center leading-none">
-          <div className="font-display text-[28px] tracking-[0.02em] whitespace-nowrap">
-            <span className="text-phosphor">WU</span>
-            <span style={{ color: '#FF3333' }}>JI</span>
-          </div>
-          <div className="font-mono text-[28px] text-white">
-            <span className="text-crt text-[32px] leading-none">(</span>
-            <span className="tracking-[0.06em]">無極</span>
-            <span className="text-crt text-[32px] leading-none">)</span>
-          </div>
-        </div>
-        <img
-          src="/images/logo-head-mouth.png"
-          alt="WU JI"
-          className="w-20 h-20 relative -top-3"
-          style={{ marginLeft: '-10px', imageRendering: 'pixelated' }}
-        />
-      </div>
+      <BrandMark />
 
       {/* Desktop links */}
       <div className="hidden md:flex items-center gap-8">
+        <Link to="/workspace" className="font-data text-[12px] text-phosphor tracking-[0.08em] hover:text-white transition-colors duration-300">
+          WORKSPACE ↗
+        </Link>
         {navLinks.map((link) => (
           <a
             key={link.label}
@@ -94,6 +81,9 @@ export default function Navigation({ onNavigate }: NavigationProps) {
             borderBottom: '1px solid #1A1A1A',
           }}
         >
+          <Link to="/workspace" onClick={() => setMobileOpen(false)} className="font-data text-[13px] text-phosphor tracking-[0.08em] hover:text-white transition-colors duration-300">
+            WORKSPACE ↗
+          </Link>
           {navLinks.map((link) => (
             <a
               key={link.label}

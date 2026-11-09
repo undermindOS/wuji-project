@@ -1,0 +1,34 @@
+{
+  "exampleId": "unchanged",
+  "sourceVersionId": "demo-source-unchanged-v1",
+  "timezone": "Europe/Moscow",
+  "currency": "RUB",
+  "task": {
+    "id": "demo-task-unchanged-v1",
+    "sourceVersionId": "demo-source-unchanged-v1",
+    "request": "Проверь исходную неделю. Все сотрудники доступны в своих сменах, перестановки не нужны.",
+    "absence": null,
+    "rules": [
+      {
+        "id": "availability",
+        "label": "Подтверждённая доступность",
+        "detail": "Учитывать отсутствие и доступность для каждой смены."
+      },
+      {
+        "id": "pinned",
+        "label": "Закреплённые назначения",
+        "detail": "Смены с отметкой «Закреплено» сохраняют своего сотрудника."
+      },
+      {
+        "id": "hours",
+        "label": "Личные лимиты часов",
+        "detail": "У Дениса — 8 ч в неделю; у остальных — лимит из карточки сотрудника."
+      },
+      {
+        "id": "coverage",
+        "label": "Покрытие и квалификация",
+        "detail": "Все 14 смен закрыты специалистом нужной роли, без пересечений."
+      }
+    ]
+  }
+}

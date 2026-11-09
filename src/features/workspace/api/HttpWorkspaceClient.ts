@@ -34,6 +34,7 @@ export interface ProjectClient {
   approveScenario(projectId: string, body: ApiSchemas['ApproveScenario'], signal?: AbortSignal): Promise<ApiSchemas['ApprovalDetail']>;
   prepareApprovedExport(projectId: string, id: string, body: ApiSchemas['PrepareApprovedExport'], signal?: AbortSignal): Promise<ApiSchemas['ExportReceipt']>;
   downloadApprovedExport(receipt: ApiSchemas['ExportReceipt'], signal?: AbortSignal): Promise<Blob>;
+  downloadTemplate(format: 'csv' | 'xlsx', signal?: AbortSignal): Promise<Blob>;
 }
 
 export class HttpWorkspaceClient implements ProjectClient {
@@ -147,6 +148,24 @@ export class HttpWorkspaceClient implements ProjectClient {
     const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),value=>value.toString(16).padStart(2,'0')).join('');
     if (bytes.byteLength!==receipt.size || sha!==receipt.sha256) throw new WorkspaceApiError(409,'export_integrity','Размер или SHA-256 файла не совпал с квитанцией.');
     return new Blob([bytes],{type:expected});
+  }
+  async downloadTemplate(format: 'csv' | 'xlsx', signal?: AbortSignal) {
+    let response: Response;
+    try { response=await this.fetcher(`/api/v1/templates?format=${format}`,{signal}); }
+    catch (error) {
+      if (error instanceof Error && error.name==='AbortError') throw error;
+      throw new WorkspaceApiError(0,'unavailable','Сервис хранения недоступен. Повторите подключение.');
+    }
+    const type=response.headers.get('Content-Type')??'';
+    if (type.includes('application/json')) {
+      let detail: {code?:string;message?:string}={};
+      try { detail=await response.json(); } catch { /* use explicit fallback below */ }
+      throw new WorkspaceApiError(response.status,detail.code??'template',detail.message??'Не удалось получить шаблон. Повторите скачивание.');
+    }
+    const expected=format==='csv'?'application/zip':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    // Without the server a static host answers this path with index.html; that page must not be saved as a template.
+    if (!response.ok || !type.includes(expected)) throw new WorkspaceApiError(response.status,'unavailable','Сервис хранения недоступен. Демонстрация доступна отдельно.');
+    return new Blob([await response.arrayBuffer()],{type:expected});
   }
 }
 

@@ -43,4 +43,5 @@ export const workspaceClient = {
   approveScenario: httpWorkspaceClient.approveScenario.bind(httpWorkspaceClient),
   prepareApprovedExport: httpWorkspaceClient.prepareApprovedExport.bind(httpWorkspaceClient),
   downloadApprovedExport: httpWorkspaceClient.downloadApprovedExport.bind(httpWorkspaceClient),
+  downloadTemplate: httpWorkspaceClient.downloadTemplate.bind(httpWorkspaceClient),
 } satisfies WorkspaceClient;

@@ -190,6 +190,8 @@ def test_local_api_boundary_and_body_limit(client):
 def test_templates_are_downloadable_without_creating_a_project(client, format):
     result = client.get('/api/v1/templates', params={'format': format})
     assert result.status_code == 200
+    # The browser client accepts the template only with exactly this type.
+    assert result.headers['content-type'] == ('application/zip' if format == 'csv' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     with zipfile.ZipFile(io.BytesIO(result.content)) as archive:
         assert ('schedule.csv' if format == 'csv' else 'xl/workbook.xml') in archive.namelist()
     assert client.get('/api/v1/projects').json() == []

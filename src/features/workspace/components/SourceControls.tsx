@@ -24,10 +24,14 @@ export default function SourceControls({ source, snapshot, onOpenProject }: Sour
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const templateController = useRef<AbortController | null>(null);
   const operation = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   useEffect(() => () => { controller.current?.abort(); operation.current += 1; }, []);
+  useEffect(() => () => templateController.current?.abort(), []);
   useEffect(() => { if (preview) previewRef.current?.scrollIntoView({ block: 'nearest' }); }, [preview?.id]);
 
   const invalidate = () => {
@@ -68,6 +72,23 @@ export default function SourceControls({ source, snapshot, onOpenProject }: Sour
       if (active()) onOpenProject(result.projectId, result.sourceId);
     });
   };
+  // The template is not an import step: it keeps its own status so the import's status line and errors stay as they are.
+  const downloadTemplate = async () => {
+    const abort = new AbortController(); templateController.current = abort;
+    const requested = format;
+    setTemplateBusy(true); setTemplateError(null);
+    try {
+      const blob = await workspaceClient.downloadTemplate(requested, abort.signal);
+      if (abort.signal.aborted) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a'); link.href = url; link.download = `wuji-template.${requested === 'csv' ? 'zip' : 'xlsx'}`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (value) {
+      if (!abort.signal.aborted) setTemplateError(value instanceof Error ? value.message : 'Не удалось получить шаблон.');
+    } finally {
+      if (!abort.signal.aborted) setTemplateBusy(false);
+    }
+  };
   const ready = format === 'xlsx' ? !!files.workbook : !!files.schedule && !!files.employees;
 
   return (
@@ -90,7 +111,8 @@ export default function SourceControls({ source, snapshot, onOpenProject }: Sour
         <div className="ws-segmented ws-import-format" aria-label="Формат импорта"><button type="button" aria-pressed={format === 'csv'} onClick={() => { invalidate(); setFormat('csv'); setFiles({}); }}>CSV</button><button type="button" aria-pressed={format === 'xlsx'} onClick={() => { invalidate(); setFormat('xlsx'); setFiles({}); }}>XLSX</button></div>
         {(format === 'xlsx' ? [['workbook', 'Книга XLSX', true]] as const : [['schedule', 'Расписание CSV', true], ['employees', 'Сотрудники CSV', true], ['availability', 'Доступность CSV', false]] as const).map(([kind, label, required]) => <div key={`${format}-${kind}`}><label className="ws-field-label" htmlFor={`file-${kind}`}>{label}{!required && ' · необязательно'}</label><input id={`file-${kind}`} type="file" required={required} accept={format === 'xlsx' ? '.xlsx' : '.csv,text/csv'} onChange={event => { invalidate(); const file = event.target.files?.[0]; setFiles(current => { const next = { ...current }; if (file) next[kind] = file; else delete next[kind]; return next; }); }} /></div>)}
         <p className="ws-note">До 5 МБ на файл. Ставки — в копейках или других сотых долях валюты; лимиты — в минутах. Без файла доступности значения останутся неизвестными.</p>
-        <a className="ws-text-button" href={`/api/v1/templates?format=${format}`} download>Скачать {format.toUpperCase()}-шаблон ↓</a>
+        <button type="button" className="ws-text-button" disabled={templateBusy} onClick={() => void downloadTemplate()}>{templateBusy ? 'Получаем шаблон…' : `Скачать ${format.toUpperCase()}-шаблон ↓`}</button>
+        {templateError && <div className="ws-notice" role="alert"><p>{templateError}</p></div>}
         <button type="submit" className="ws-outline" disabled={!ready || busy}>Проверить файлы <span aria-hidden="true">→</span></button>
         {preview && <div className="ws-import-preview" ref={previewRef} aria-label="Предпросмотр импорта" aria-live="polite">
           <h4>{preview.canConfirm ? 'Данные готовы к подтверждению' : 'Исправьте ошибки в файлах'}</h4>

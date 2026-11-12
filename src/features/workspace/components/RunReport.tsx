@@ -17,7 +17,7 @@ export default function RunReport({ run, onShiftSelect }: { run: RunDetail; onSh
     {run.result?.issues.map((issue, index) => <div className="ws-notice" key={index}><p>{issue.message}</p>{(issue.shiftIds ?? []).slice(0, 5).map(sid => <button key={sid} type="button" className="ws-text-button" onClick={() => onShiftSelect(sid)}>Shift {sid} · view evidence ↖</button>)}</div>)}
     <details className="ws-journal"><summary>Calculation log · {run.events.length}</summary>
       <p className="ws-note">Engine: {run.engineVersion}<br />Source: {run.sourceHash.slice(0, 16)}…<br />Total search time limit: {run.maxTimeSeconds} s. OR-Tools calculates assignments.</p>
-      <ol>{run.events.map((event, index) => <li key={index}>{new Date(event.at).toLocaleTimeString('en-GB')} · {event.message}</li>)}</ol>
+      <ol>{run.events.map((event, index) => <li key={index}>{new Date(event.at).toLocaleTimeString('en-US')} · {event.message}</li>)}</ol>
       {run.result?.attempts.map((attempt, index) => <p className="ws-note" key={index}>{attempt.priority === 'min_changes' ? 'Reassignments' : 'Pay'} / {attempt.phase === 'primary' ? 'primary objective' : 'secondary objective'}: <strong>{attempt.status}</strong> · {attempt.elapsedMs} ms</p>)}
     </details>
   </div>;

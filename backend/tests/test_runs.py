@@ -100,8 +100,8 @@ def test_changed_conditions_mark_old_result_historical_and_block_stale_start(cli
     pid, _, snapshot = imported(client, files)
     rid = start(client, pid, snapshot).json()['id']
     saved = client.post('/api/v1/projects/' + pid + '/tasks', json={'expectedSourceVersionId': snapshot['source']['id'],
-        'expectedTaskId': snapshot['task']['id'], 'request': 'Anna absent',
-        'absence': {'employeeId': 'anna', 'shiftIds': ['s05']}})
+        'expectedTaskId': snapshot['task']['id'], 'request': 'Emily absent',
+        'absence': {'employeeId': 'emily', 'shiftIds': ['s05']}})
     assert saved.status_code == 201
     current = client.get('/api/v1/projects/' + pid + '/workspace').json()
     new_id = start(client, pid, current).json()['id']
@@ -118,7 +118,7 @@ def test_named_conflict_survives_storage_and_reaches_the_client(client, settings
     pid, _, snapshot = imported(client, files)
     saved = client.post('/api/v1/projects/' + pid + '/tasks', json={'expectedSourceVersionId': snapshot['source']['id'],
         'expectedTaskId': snapshot['task']['id'], 'request': 'Закрепить смену за Анной и отметить её отсутствие',
-        'absence': {'employeeId': 'anna', 'shiftIds': ['s05']}, 'fixedAssignments': {'s05': 'anna'}})
+        'absence': {'employeeId': 'emily', 'shiftIds': ['s05']}, 'fixedAssignments': {'s05': 'emily'}})
     assert saved.status_code == 201, saved.text
     rid = start(client, pid, client.get('/api/v1/projects/' + pid + '/workspace').json()).json()['id']
     work_once(settings, client.app.state.sessions)
@@ -126,11 +126,11 @@ def test_named_conflict_survives_storage_and_reaches_the_client(client, settings
     assert run['status'] == 'completed' and run['result']['outcome'] == 'infeasible'
     assert any(e['code'] == 'diagnosis' for e in run['events']) and len(run['result']['attempts']) == 1
     issue, = run['result']['issues']
-    assert issue['code'] == 'fixed_absence' and issue['shiftIds'] == ['s05'] and issue['employeeIds'] == ['anna']
-    assert 'Anna Volkova' in issue['message'] and issue['sourceRefs'] == []
+    assert issue['code'] == 'fixed_absence' and issue['shiftIds'] == ['s05'] and issue['employeeIds'] == ['emily']
+    assert 'Emily Johnson' in issue['message'] and issue['sourceRefs'] == []
     assert issue['conditions'] == [
-        {'kind': 'fixed_assignment', 'shiftId': 's05', 'employeeId': 'anna', 'role': None, 'removalCheck': 'solution'},
-        {'kind': 'absence', 'shiftId': 's05', 'employeeId': 'anna', 'role': None, 'removalCheck': 'solution'}]
+        {'kind': 'fixed_assignment', 'shiftId': 's05', 'employeeId': 'emily', 'role': None, 'removalCheck': 'solution'},
+        {'kind': 'absence', 'shiftId': 's05', 'employeeId': 'emily', 'role': None, 'removalCheck': 'solution'}]
 
 
 def test_partial_acceptance_creates_new_conditions_and_new_queued_calculation_atomically(client, settings, files):
@@ -152,7 +152,7 @@ def test_partial_acceptance_creates_new_conditions_and_new_queued_calculation_at
     result = load(client, pid, fixed['run']['id']).json()
     assert result['status'] == 'completed'
     assert all(s['scenario']['assignments'][sid] == calculated['scenario']['assignments'][sid] for s in result['result']['scenarios'])
-    assert all(s['metrics']['minutesByEmployee']['denis'] == 480 for s in result['result']['scenarios'])
+    assert all(s['metrics']['minutesByEmployee']['daniel'] == 480 for s in result['result']['scenarios'])
 
 
 def test_cancel_racing_with_a_finished_solve_discards_unpublished_results(client, settings, files, monkeypatch):

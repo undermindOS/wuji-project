@@ -51,7 +51,7 @@ export default function ScenarioPane({ example, scenario, metrics, checks, selec
             <span className="ws-conflict-symbol" aria-hidden="true">×</span>
             <span className="ws-kicker ws-red">CONSTRAINT CONFLICT</span>
             <h3>{example.conflict.title}</h3><p>{example.conflict.detail}</p>
-            <div className="ws-conflict-pair"><span>▣ The shift is pinned to Anna</span><span>× Anna is absent during this shift</span></div>
+            <div className="ws-conflict-pair"><span>▣ The shift is pinned to Emily</span><span>× Emily is absent during this shift</span></div>
             <button type="button" className="ws-outline" onClick={onReviewConflict}>View evidence ↖</button>
             <p className="ws-note">This example shows a direct conflict between two constraints. The solver was not run.</p>
           </div>

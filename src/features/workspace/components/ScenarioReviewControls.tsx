@@ -6,7 +6,7 @@ import { dayLabel, timeLabel } from '../model/schedule';
 
 type State=ReturnType<typeof useScenarioReview>;
 interface Props {state:State;snapshot:WorkspaceSnapshot;requestEdited:boolean}
-const date=(value:string)=>new Date(value).toLocaleString('en-GB',{timeZoneName:'short'});
+const date=(value:string)=>new Date(value).toLocaleString('en-US',{timeZoneName:'short'});
 const candidateLabel=(candidate:NonNullable<State['candidate']>)=>candidate.origin==='solver'?'Calculation · '+candidate.scenario.label:
   'R'+candidate.revisionVersion+' · '+(!candidate.validation?'Not validated':candidate.validation.status==='pass'?'Validated':candidate.validation.status==='unknown'?'Clarification needed':'Constraints violated');
 
@@ -51,7 +51,7 @@ function PreparedFiles({state,approval}: {state:State;approval:ApprovalDetail}) 
   return <div className="ws-approved-files">
     {approval.exports.map(file=><div className="ws-approved-file" key={file.id}>
       <strong>{file.format==='csv'?'CSV bundle':'XLSX'} · file prepared</strong>
-      <small>{file.filename}<br />{new Intl.NumberFormat('en-GB').format(file.size)} bytes · SHA-256 {file.sha256.slice(0,16)}…</small>
+      <small>{file.filename}<br />{new Intl.NumberFormat('en-US').format(file.size)} bytes · SHA-256 {file.sha256.slice(0,16)}…</small>
       <button type="button" className="ws-outline" disabled={!!state.busy} onClick={()=>void state.download(file)}>{state.busy==='download'?'Retrieving file…':'Download '+(file.format==='csv'?'CSV bundle':'XLSX')} <span aria-hidden="true">↓</span></button>
     </div>)}
   </div>;

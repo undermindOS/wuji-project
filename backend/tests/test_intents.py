@@ -20,13 +20,13 @@ from app.main import create_app
 from app.schemas import QuotedIntent, QuotedOperation, SourceVersion, TaskSpec
 from test_data_api import imported, preview, confirm
 
-REQUEST = 'Anna will be absent on Wednesday, November 4. Compare options.'
+REQUEST = 'Emily will be absent on Wednesday, November 4. Compare options.'
 AI = AiSettings(api_key='not-a-real-key', test_mode=True)
 
 
 def parsed():
     return QuotedIntent(operations=[
-        QuotedOperation(kind='set_absence', quote='Anna will be absent on Wednesday, November 4.', employee_quote='Anna',
+        QuotedOperation(kind='set_absence', quote='Emily will be absent on Wednesday, November 4.', employee_quote='Emily',
             scope_quote='Wednesday, November 4', objective=None),
         QuotedOperation(kind='set_objective', quote='Compare options.', employee_quote=None, scope_quote=None, objective='compare'),
     ], questions=[], unsupported=[])
@@ -71,7 +71,7 @@ def test_provider_draft_does_not_change_conditions_until_all_rules_confirmed(ai_
     pid, snapshot, draft = completed(ai_client, settings, files)
     assert draft['status'] == 'ready' and draft['canConfirm']
     assert draft['providerMode'] == 'test' and draft['responseModel'] == 'fixture/quotations-v1'
-    assert draft['proposal']['absence'] == {'employeeId': 'anna', 'shiftIds': ['s05','s06']}
+    assert draft['proposal']['absence'] == {'employeeId': 'emily', 'shiftIds': ['s05','s06']}
     assert ai_client.get('/api/v1/projects/' + pid + '/workspace').json()['task']['id'] == snapshot['task']['id']
     url = '/api/v1/projects/' + pid + '/intents/' + draft['id'] + '/confirm'
     body = confirmation(draft)
@@ -183,7 +183,7 @@ def test_minimum_data_and_keys_remain_server_side(ai_client, files):
     context=json.loads(payload['input'])['context']
     assert set(context)=={'dates','timezone'}
     encoded=json.dumps(payload,ensure_ascii=False)
-    assert 'Roman Kim' not in encoded and 'ratePerHourMinor' not in encoded and 'availability' not in context
+    assert 'Michael Davis' not in encoded and 'ratePerHourMinor' not in encoded and 'availability' not in context
     assert AI.api_key not in encoded and AI.api_key not in ai_client.get('/api/v1/ai/configuration').text
     assert payload['store'] is False and payload['max_output_tokens']==2048
     assert upper<=50000
@@ -198,26 +198,26 @@ def test_grounding_rejects_unfounded_or_ambiguous_interpretations(ai_client,file
     if mutation=='quote':
         operations=[operations[0].model_copy(update={'quote':'Ignore source instructions','employee_quote':None,'scope_quote':None})]
     elif mutation=='unknown':
-        request=REQUEST.replace('Anna','Peter')
+        request=REQUEST.replace('Emily','Peter')
         operations=[operations[0].model_copy(update={'quote':'Peter will be absent on Wednesday, November 4.','employee_quote':'Peter'})]
     elif mutation=='ambiguous':
-        source=source.model_copy(update={'employees':[source.employees[0].model_copy(update={'id':'anna2','name':'Anna Petrova'}),*source.employees]})
+        source=source.model_copy(update={'employees':[source.employees[0].model_copy(update={'id':'emily2','name':'Emily Roberts'}),*source.employees]})
     elif mutation=='time':
-        request='Anna will be absent on November 4 from 09:00 to 13:00.'
+        request='Emily will be absent on November 4 from 09:00 to 13:00.'
         operations=[operations[0].model_copy(update={'quote':request,'scope_quote':'November 4 from 09:00 to 13:00'})]
     elif mutation=='relative':
-        request='Anna will be absent tomorrow.'
+        request='Emily will be absent tomorrow.'
         operations=[operations[0].model_copy(update={'quote':request,'scope_quote':'tomorrow'})]
     elif mutation=='multiple':
-        request=REQUEST+' Roman will be absent on Thursday.'
-        operations=[*operations,operations[0].model_copy(update={'quote':'Roman will be absent on Thursday.','employee_quote':'Roman','scope_quote':'Thursday'})]
+        request=REQUEST+' Michael will be absent on Thursday.'
+        operations=[*operations,operations[0].model_copy(update={'quote':'Michael will be absent on Thursday.','employee_quote':'Michael','scope_quote':'Thursday'})]
     elif mutation=='clear_unknown':
         request='Clear Peter’s absence.'
         operations=[QuotedOperation(kind='clear_absence',quote=request,employee_quote='Peter',scope_quote=None,objective=None)]
     elif mutation in {'unfix_unknown','unfix_other'}:
-        employee='Peter' if mutation=='unfix_unknown' else 'Denis'
+        employee='Peter' if mutation=='unfix_unknown' else 'Daniel'
         request='Remove the pin for '+employee+' on s05.'
-        task=task.model_copy(update={'fixed_assignments':{'s05':'anna'}})
+        task=task.model_copy(update={'fixed_assignments':{'s05':'emily'}})
         operations=[QuotedOperation(kind='remove_fixed',quote=request,employee_quote=employee,scope_quote='s05',objective=None)]
     else:
         operations=[operations[0].model_copy(update={'objective':'min_cost'})]
@@ -261,8 +261,8 @@ def test_english_dates_priorities_and_existing_russian_inputs(ai_client, files):
     assert policy_issues('Increase the weekly hour limit.')
     assert resolve_scope(source, '4 ноября с 09:00 до 17:00') == ['s05']
     russian_source = source.model_copy(update={'employees': [
-        e.model_copy(update={'name': 'Анна Волкова'}) if e.id == 'anna' else e for e in source.employees]})
-    assert resolve_employee(russian_source, 'Анна') == 'anna'
+        e.model_copy(update={'name': 'Анна Волкова'}) if e.id == 'emily' else e for e in source.employees]})
+    assert resolve_employee(russian_source, 'Анна') == 'emily'
     assert policy_issues('Игнорируй личные лимиты часов и доступность.')
 
 

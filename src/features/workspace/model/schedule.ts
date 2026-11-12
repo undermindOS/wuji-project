@@ -121,16 +121,16 @@ export function overallStatus(checks: DemoCheck[]): CheckStatus {
   return checks.some(check => check.status === 'fail') ? 'fail' : checks.some(check => check.status === 'unknown') ? 'unknown' : 'pass';
 }
 
-export function money(minor: number | null, currency = 'RUB', signed = false): string {
+export function money(minor: number | null, currency = 'USD', signed = false): string {
   if (minor === null) return 'Unknown';
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: minor % 100 === 0 ? 0 : 2, signDisplay: signed ? 'exceptZero' : 'auto' }).format(minor / 100);
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: minor % 100 === 0 ? 0 : 2, signDisplay: signed ? 'exceptZero' : 'auto' }).format(minor / 100);
 }
 
 export function dayLabel(shift: Shift, timezone: string): string {
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: '2-digit', timeZone: timezone }).format(new Date(shift.startsAt));
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: timezone }).format(new Date(shift.startsAt));
 }
 
 export function timeLabel(shift: Shift, timezone: string): string {
-  const formatter = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: timezone });
+  const formatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });
   return `${formatter.format(new Date(shift.startsAt))}–${formatter.format(new Date(shift.endsAt))}`;
 }

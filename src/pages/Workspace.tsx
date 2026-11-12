@@ -148,9 +148,9 @@ export default function Workspace() {
   };
   const period = example ? (() => {
     const dates = example.source.shifts.map(shift => new Date(shift.startsAt)).sort((a, b) => a.getTime() - b.getTime());
-    const formatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', timeZone: example.source.timezone });
-    const year = new Intl.DateTimeFormat('en-GB', { year: 'numeric', timeZone: example.source.timezone });
-    return dates.length ? `${formatter.format(dates[0])}${year.format(dates[0]) !== year.format(dates[dates.length - 1]) ? ` ${year.format(dates[0])}` : ''} — ${formatter.format(dates[dates.length - 1])} ${year.format(dates[dates.length - 1])}` : '—';
+    const formatter = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', timeZone: example.source.timezone });
+    const year = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: example.source.timezone });
+    return dates.length ? `${formatter.format(dates[0])}${year.format(dates[0]) !== year.format(dates[dates.length - 1]) ? `, ${year.format(dates[0])}` : ''} — ${formatter.format(dates[dates.length - 1])}, ${year.format(dates[dates.length - 1])}` : '—';
   })() : '—';
 
   return (

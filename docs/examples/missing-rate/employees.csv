@@ -1,11 +1,11 @@
 employee_id,name,roles,rate_per_hour_minor,max_weekly_minutes,currency
-anna,Anna Volkova,Specialist,30000,1440,RUB
-roman,Roman Kim,Specialist|Senior specialist,28000,1440,RUB
-ilya,Ilya Sokolov,Specialist,26000,960,RUB
-daria,Daria Morozova,Specialist|Senior specialist,30000,1440,RUB
-marina,Marina Belova,Specialist,28000,1440,RUB
-denis,Denis Orlov,Specialist,25000,480,RUB
-igor,Igor Lebedev,Specialist,27000,960,RUB
-elena,Elena Petrova,Specialist,26000,960,RUB
-oleg,Oleg Mironov,Specialist,24000,960,RUB
-sofia,Sofia Lee,Specialist,,960,RUB
+emily,Emily Johnson,Specialist,3000,1440,USD
+michael,Michael Davis,Specialist|Senior specialist,2800,1440,USD
+james,James Wilson,Specialist,2600,960,USD
+sarah,Sarah Miller,Specialist|Senior specialist,3000,1440,USD
+jessica,Jessica Brown,Specialist,2800,1440,USD
+daniel,Daniel Taylor,Specialist,2500,480,USD
+david,David Anderson,Specialist,2700,960,USD
+ashley,Ashley Thomas,Specialist,2600,960,USD
+christopher,Christopher Moore,Specialist,2400,960,USD
+sophia,Sophia Lee,Specialist,,960,USD

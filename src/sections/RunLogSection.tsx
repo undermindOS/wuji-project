@@ -10,7 +10,7 @@ gsap.registerPlugin(ScrollTrigger);
    thoughts. The week is synthetic, and the section says so on screen. */
 const TERMINAL_LINES = [
   '> source: 18 people recognised, 2 rates missing',
-  '> task: "Anna is out on Tuesday. Keep every shift covered."',
+  '> task: "Emily is out on Tuesday. Keep every shift covered."',
   '> draft: conditions written, every quote found in the task',
   '> you: conditions confirmed, version 2',
   '> solver: 2 valid options',

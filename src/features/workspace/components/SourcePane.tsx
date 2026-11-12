@@ -19,34 +19,34 @@ export default function SourcePane({ source, task, selectedShiftId, selectionSeq
   useEffect(() => { if (selectionSequence > 0) setView('schedule'); }, [selectionSequence]);
   return (
     <>
-      <div className="ws-pane-heading"><span className="ws-kicker ws-green">01 // SOURCE</span><div><h2 id="source-heading">Исходное состояние</h2><span className="ws-version">V{source.version}</span></div></div>
+      <div className="ws-pane-heading"><span className="ws-kicker ws-green">01 // SOURCE</span><div><h2 id="source-heading">Original state</h2><span className="ws-version">V{source.version}</span></div></div>
       <div className="ws-pane-scroll">
         {children}
         <div className="ws-file">
           <span className="ws-file-icon" aria-hidden="true">▤</span>
-          <div><strong>{source.filename}</strong><span>{source.projectId ? 'Сохранённая версия · только чтение' : 'Исходник примера · только просмотр'}</span></div>
+          <div><strong>{source.filename}</strong><span>{source.projectId ? 'Saved version · read only' : 'Example source · read only'}</span></div>
         </div>
-        <div className="ws-source-summary"><span><b>{source.employees.length}</b> сотрудников</span><span><b>{source.shifts.length}</b> смен</span><span><b>{source.shifts.reduce((minutes, shift) => minutes + durationMinutes(shift), 0) / 60}</b> часов</span></div>
-        <div className="ws-segmented" aria-label="Представление исходных данных">
-          <button type="button" onClick={() => setView('schedule')} aria-pressed={view === 'schedule'}>Расписание</button>
-          <button type="button" onClick={() => setView('team')} aria-pressed={view === 'team'}>Команда · {source.employees.length}</button>
+        <div className="ws-source-summary"><span><b>{source.employees.length}</b> employees</span><span><b>{source.shifts.length}</b> shifts</span><span><b>{source.shifts.reduce((minutes, shift) => minutes + durationMinutes(shift), 0) / 60}</b> hours</span></div>
+        <div className="ws-segmented" aria-label="Source data view">
+          <button type="button" onClick={() => setView('schedule')} aria-pressed={view === 'schedule'}>Schedule</button>
+          <button type="button" onClick={() => setView('team')} aria-pressed={view === 'team'}>Team · {source.employees.length}</button>
         </div>
         {view === 'schedule' ? <ScheduleTable source={source} task={task} assignments={assignmentsOf(source)} selectedShiftId={selectedShiftId} selectionSequence={selectionSequence} onSelect={onSelect} view="source" /> : (
           <div className="ws-team-list">
             {source.employees.map(employee => (
               <div key={employee.id} className="ws-person">
                 <span className="ws-avatar">{employee.initials}</span>
-                <div><strong>{employee.name}</strong><small>{employee.roles.join(' / ')} · до {employee.maxWeeklyMinutes / 60} ч/нед.</small><small className={employee.ratePerHourMinor === null ? 'ws-orange' : ''}>{money(employee.ratePerHourMinor, source.currency)} / ч</small></div>
+                <div><strong>{employee.name}</strong><small>{employee.roles.join(' / ')} · up to {employee.maxWeeklyMinutes / 60} h/week</small><small className={employee.ratePerHourMinor === null ? 'ws-orange' : ''}>{money(employee.ratePerHourMinor, source.currency)} / h</small></div>
               </div>
             ))}
-            <p className="ws-note">Доступность задана для каждой смены. Неуказанная доступность считается неизвестной.</p>
+            <p className="ws-note">Availability is specified for each shift. Unspecified availability is treated as unknown.</p>
           </div>
         )}
         <div className="ws-source-footnote">
-          <span>▣ Закреплённое назначение</span>
+          <span>▣ Pinned assignment</span>
           <span>{source.timezone} · {source.currency}</span>
         </div>
-        {selected && <div className="ws-source-reference" data-testid="source-reference"><span className="ws-kicker">ВЫБРАННЫЙ ИСТОЧНИК</span><strong>Строка {selected.sourceRow} · {selected.id}</strong><p>{source.projectId ? `${selected.sourceRefs?.employee_id?.filename ?? source.filename}${selected.sourceRefs?.employee_id?.sheet ? ` / ${selected.sourceRefs.employee_id.sheet}` : ''}. Назначение и время сохранены вместе с происхождением полей.` : 'Назначение и время взяты из таблицы. Доступность и ставки — из синтетических карточек команды.'}</p><button type="button" className="ws-text-button" onClick={() => setView(view === 'team' ? 'schedule' : 'team')}>{view === 'team' ? 'Открыть расписание ↗' : 'Открыть ставки команды ↗'}</button></div>}
+        {selected && <div className="ws-source-reference" data-testid="source-reference"><span className="ws-kicker">SELECTED SOURCE</span><strong>Row {selected.sourceRow} · {selected.id}</strong><p>{source.projectId ? `${selected.sourceRefs?.employee_id?.filename ?? source.filename}${selected.sourceRefs?.employee_id?.sheet ? ` / ${selected.sourceRefs.employee_id.sheet}` : ''}. Assignment and time are saved with field provenance.` : 'Assignments and times come from the table. Availability and rates come from synthetic team profiles.'}</p><button type="button" className="ws-text-button" onClick={() => setView(view === 'team' ? 'schedule' : 'team')}>{view === 'team' ? 'Open schedule ↗' : 'Open team rates ↗'}</button></div>}
       </div>
     </>
   );

@@ -23,7 +23,7 @@ def current(project, source_id, task_id):
 
 def require_current(project, source_id, task_id):
     if not current(project,source_id,task_id):
-        raise ServiceError(409,'review_stale','Исходник или условия изменились. Откройте текущую версию и выполните новый расчёт.')
+        raise ServiceError(409,'review_stale','The source or constraints have changed. Open the current version and run a new calculation.')
 
 
 def originals(store, source):
@@ -35,7 +35,7 @@ def run_inputs(db, project_id, run):
     source=source_or_404(db,project_id,run.source_id)
     record=db.get(TaskRecord,run.task_id)
     if not record or record.project_id!=project_id or record.source_id!=source.id or source.content_hash!=run.source_hash:
-        raise ServiceError(409,'review_inputs','Входные версии не совпадают с сохранённым расчётом.')
+        raise ServiceError(409,'review_inputs','Input versions do not match the saved calculation.')
     return source,TaskSpec.model_validate(record.payload)
 
 
@@ -58,7 +58,7 @@ def base_candidates(run):
 def revision_or_404(db, project_id, revision_id):
     revision=db.scalar(select(RevisionRecord).where(RevisionRecord.id==revision_id,RevisionRecord.project_id==project_id))
     if not revision:
-        raise ServiceError(404,'revision_not_found','Ручная версия не найдена в этом проекте.')
+        raise ServiceError(404,'revision_not_found','Manual revision not found in this project.')
     return revision
 
 
@@ -90,11 +90,11 @@ def selected_candidate(db, project_id, run, scenario_id, revision_id):
     if revision_id:
         record=revision_or_404(db,project_id,revision_id)
         if record.run_id!=run.id or record.id!=scenario_id:
-            raise ServiceError(422,'revision_reference','Ручная версия не относится к выбранному варианту и запуску.')
+            raise ServiceError(422,'revision_reference','The manual revision does not belong to the selected option and run.')
         return revision_candidate(db,run,record)
     candidate=next((c for c in base_candidates(run) if c.id==scenario_id),None)
     if not candidate:
-        raise ServiceError(422,'scenario_reference','Выберите конкретный завершённый вариант расчёта.')
+        raise ServiceError(422,'scenario_reference','Select a specific completed calculation option.')
     return candidate
 
 
@@ -104,28 +104,28 @@ def create_revision(db, store, project_id, run_id, body):
     previous=db.scalar(select(RevisionRecord).where(RevisionRecord.project_id==project_id,RevisionRecord.request_key==body.request_key))
     if previous:
         if previous.request_hash!=request_hash:
-            raise ServiceError(409,'revision_key','Ключ относится к другой ручной правке.')
+            raise ServiceError(409,'revision_key','The key belongs to a different manual edit.')
         return revision_candidate(db,run_or_404(db,project_id,run_id),previous)
     require_current(project,body.source_version_id,body.task_spec_id)
     run=run_or_404(db,project_id,run_id)
     if (run.source_id,run.task_id)!=(body.source_version_id,body.task_spec_id):
-        raise ServiceError(409,'review_stale','Запуск относится к другим входным версиям.')
+        raise ServiceError(409,'review_stale','The run belongs to different input versions.')
     base=selected_candidate(db,project_id,run,body.base_scenario_id,None)
     parent=base
     if body.parent_revision_id:
         parent=selected_candidate(db,project_id,run,body.parent_revision_id,body.parent_revision_id)
         if parent.base_scenario_id!=base.id:
-            raise ServiceError(422,'revision_parent','Родительская версия относится к другому варианту.')
+            raise ServiceError(422,'revision_parent','The parent revision belongs to a different option.')
     source,_=run_inputs(db,project_id,run)
     originals(store,source)
     if set(body.assignments)!={s.id for s in source.shifts} or any(eid not in {e.id for e in source.employees} for eid in body.assignments.values()):
-        raise ServiceError(422,'revision_assignments','Нужно ровно одно известное назначение для каждой исходной смены.')
+        raise ServiceError(422,'revision_assignments','Exactly one known assignment is required for each source shift.')
     if body.assignments==parent.scenario.assignments:
-        raise ServiceError(422,'revision_unchanged','Назначения не изменились.')
+        raise ServiceError(422,'revision_unchanged','Assignments have not changed.')
     project.revision_counter+=1
     created=now()
     scenario=Scenario(id=str(uuid4()),source_version_id=run.source_id,task_spec_id=run.task_id,
-        label='Ручная версия R'+str(project.revision_counter),description='Ручная правка назначений; оптимизация не выполнялась.',
+        label='Manual revision R'+str(project.revision_counter),description='Manual assignment edit; no optimization was performed.',
         assignments=body.assignments)
     record=RevisionRecord(id=scenario.id,project_id=project_id,source_id=run.source_id,task_id=run.task_id,run_id=run.id,
         base_scenario_id=base.id,parent_revision_id=body.parent_revision_id,version=project.revision_counter,
@@ -162,7 +162,7 @@ def export_receipt(record):
 def approval_or_404(db, project_id, approval_id):
     record=db.scalar(select(ApprovalRecord).where(ApprovalRecord.id==approval_id,ApprovalRecord.project_id==project_id))
     if not record:
-        raise ServiceError(404,'approval_not_found','Утверждение не найдено в этом проекте.')
+        raise ServiceError(404,'approval_not_found','Approval not found in this project.')
     return record
 
 
@@ -194,28 +194,28 @@ def approve(db, store, project_id, body):
         ApprovalRequestRecord.request_key==body.request_key))
     if previous:
         if previous.request_hash!=request_hash:
-            raise ServiceError(409,'approval_key','Ключ подтверждения относится к другому решению.')
+            raise ServiceError(409,'approval_key','The confirmation key belongs to a different decision.')
         return approval_detail(db,project,approval_or_404(db,project_id,previous.approval_id))
     if not body.acknowledged:
-        raise ServiceError(422,'approval_ack','Подтвердите проверку назначений и условий выбранной версии.')
+        raise ServiceError(422,'approval_ack','Confirm that you reviewed the assignments and constraints in this version.')
     require_current(project,body.source_version_id,body.task_spec_id)
     run=run_or_404(db,project_id,body.run_id)
     if (run.source_id,run.task_id)!=(body.source_version_id,body.task_spec_id):
-        raise ServiceError(409,'review_stale','Запуск относится к другим версиям.')
+        raise ServiceError(409,'review_stale','The run belongs to different versions.')
     candidate=selected_candidate(db,project_id,run,body.scenario_id,body.revision_id)
     if candidate.candidate_hash!=body.candidate_hash:
-        raise ServiceError(409,'candidate_changed','Подтверждение относится к другой версии назначений.')
+        raise ServiceError(409,'candidate_changed','The confirmation refers to a different assignment version.')
     if not candidate.validation or candidate.validation.status!='pass' or not candidate.metrics:
-        raise ServiceError(422,'approval_unverified','Для утверждения нужна пройденная серверная проверка этой версии.')
+        raise ServiceError(422,'approval_unverified','Approval requires successful server validation of this version.')
     source,task=run_inputs(db,project_id,run)
     originals(store,source)
     validation,metrics,evidence=evaluate(source,task,candidate.scenario)
     if validation.status!='pass':
-        raise ServiceError(422,'approval_validation','Повторная проверка выявила нарушение или неизвестные условия.')
+        raise ServiceError(422,'approval_validation','Revalidation found violated or unknown constraints.')
     if validation!=candidate.validation or metrics!=candidate.metrics or evidence!=candidate.evidence:
-        raise ServiceError(409,'validation_changed','Проверка или метрики изменились. Нужен новый расчёт или проверка новой ручной версии.')
+        raise ServiceError(409,'validation_changed','Validation or metrics have changed. Recalculate or validate a new manual revision.')
     if metrics.cost_minor is None and not body.acknowledged_unknown_cost:
-        raise ServiceError(422,'approval_unknown_cost','Подтвердите, что оплата неизвестна и не считается нулевой.')
+        raise ServiceError(422,'approval_unknown_cost','Confirm that pay is unknown and is not treated as zero.')
     record=db.get(ApprovalRecord,project.head_approval_id) if project.head_approval_id else None
     created=now()
     if not record or record.candidate_hash!=candidate.candidate_hash:

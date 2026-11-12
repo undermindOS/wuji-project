@@ -9,6 +9,6 @@ export const mergeRunUpdate = (previous: RunDetail | null, next: RunDetail) =>
   previous?.id === next.id && !isActiveRun(previous) && isActiveRun(next) ? previous : next;
 
 export const runStatusLabel: Record<RunSummary['status'], string> = {
-  queued: 'В очереди', running: 'Выполняется', completed: 'Завершён',
-  needs_clarification: 'Требуется уточнение', failed: 'Ошибка', cancelled: 'Отменён',
+  queued: 'Queued', running: 'Running', completed: 'Completed',
+  needs_clarification: 'Clarification required', failed: 'Error', cancelled: 'Cancelled',
 };

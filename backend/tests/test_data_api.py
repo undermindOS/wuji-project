@@ -12,14 +12,14 @@ from sqlalchemy.exc import IntegrityError
 from app.main import create_app
 
 
-def project(client, name='Студия «Север»'):
+def project(client, name='North Studio'):
     response = client.post('/api/v1/projects', json={'name': name})
     assert response.status_code == 201, response.text
     return response.json()['id']
 
 
 def preview(client, project_id, files, expected=None):
-    data = {'team_name': 'Студия «Север»', 'timezone': 'Europe/Moscow', 'currency': 'RUB'}
+    data = {'team_name': 'North Studio', 'timezone': 'Europe/Moscow', 'currency': 'RUB'}
     if expected:
         data['expected_source_version_id'] = expected
     response = client.post(f'/api/v1/projects/{project_id}/imports', data=data, files=files)

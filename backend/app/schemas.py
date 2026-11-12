@@ -115,7 +115,7 @@ class ProjectCreate(ApiModel):
     @classmethod
     def clean_name(cls, value):
         if value != value.strip() or any(ord(c) < 32 for c in value):
-            raise ValueError('Название не должно содержать крайние пробелы или управляющие символы.')
+            raise ValueError('The name must not contain leading/trailing spaces or control characters.')
         return value
 
 

@@ -30,7 +30,7 @@ def recover_stale_runs(db, project_id=None):
     stale = db.scalars(query.with_for_update(skip_locked=True)).all()
     for run in stale:
         run.status, run.finished_at = ('cancelled' if run.cancel_requested else 'failed'), now()
-        run.events = [*run.events, event('worker_lost', 'Worker не подтвердил работу за 30 секунд. Запуск остановлен; можно повторить расчёт.')]
+        run.events = [*run.events, event('worker_lost', 'The worker did not report activity within 30 seconds. The run was stopped; you can calculate again.')]
     if stale:
         db.commit()
     return len(stale)
@@ -53,7 +53,7 @@ def run_or_404(db, project_id, run_id, lock=False):
     query = select(RunRecord).where(RunRecord.id == run_id, RunRecord.project_id == project_id)
     run = db.scalar(query.with_for_update() if lock else query)
     if not run:
-        raise ServiceError(404, 'run_not_found', 'Запуск не найден в этом проекте.')
+        raise ServiceError(404, 'run_not_found', 'Run not found in this project.')
     return run
 
 
@@ -63,23 +63,23 @@ def start_run(db, store, project_id, payload: StartRun, request_context='direct'
     if previous:
         if ((previous.source_id, previous.task_id, previous.max_time_seconds) != (payload.source_version_id, payload.task_spec_id, payload.max_time_seconds)
             or previous.request_context != request_context):
-            raise ServiceError(409, 'request_key_conflict', 'Повторный ключ относится к другим входам.')
+            raise ServiceError(409, 'request_key_conflict', 'The reused key belongs to different inputs.')
         return detail(previous, project)
     if project.head_source_id != payload.source_version_id or project.head_task_id != payload.task_spec_id:
-        raise ServiceError(409, 'run_inputs_stale', 'Исходник или условия изменились. Откройте текущую версию перед новым расчётом.')
+        raise ServiceError(409, 'run_inputs_stale', 'The source or constraints have changed. Open the current version before calculating again.')
     if db.scalar(select(RunRecord.id).where(RunRecord.project_id == project_id, RunRecord.source_id == payload.source_version_id,
         RunRecord.task_id == payload.task_spec_id, RunRecord.status.in_(ACTIVE))):
-        raise ServiceError(409, 'run_active', 'Для этих версий уже есть активный расчёт. Обновите список запусков.')
+        raise ServiceError(409, 'run_active', 'An active calculation already exists for these versions. Refresh the run list.')
     source = source_or_404(db, project_id, payload.source_version_id)
     task = db.get(TaskRecord, payload.task_spec_id)
     if not task or task.project_id != project_id or task.source_id != source.id:
-        raise ServiceError(404, 'task_not_found', 'Условия не принадлежат этой версии исходника.')
+        raise ServiceError(404, 'task_not_found', 'The constraints do not belong to this source version.')
     for file in source.original_files:
         store.read(file.sha256)
     run = RunRecord(id=str(uuid4()), project_id=project_id, source_id=source.id, task_id=task.id,
         source_hash=source.content_hash, engine_version=ENGINE_VERSION, request_key=payload.request_key, request_context=request_context,
         max_time_seconds=payload.max_time_seconds, status='queued', cancel_requested=False,
-        events=[event('queued', 'Запуск сохранён в очереди. Источник V' + str(source.version) + '; условия V' + str(task.version) + '.')],
+        events=[event('queued', 'Run queued. Source V' + str(source.version) + '; constraints V' + str(task.version) + '.')],
         created_at=now())
     db.add(run)
     db.commit()
@@ -107,10 +107,10 @@ def cancel_run(db, project_id, run_id):
     run = run_or_404(db, project_id, run_id, lock=True)
     if run.status in ACTIVE and not run.cancel_requested:
         run.cancel_requested = True
-        run.events = [*run.events, event('cancel_requested', 'Пользователь запросил отмену расчёта.')]
+        run.events = [*run.events, event('cancel_requested', 'The user requested calculation cancellation.')]
         if run.status == 'queued':
             run.status, run.finished_at = 'cancelled', now()
-            run.events = [*run.events, event('cancelled', 'Задание отменено до начала поиска.')]
+            run.events = [*run.events, event('cancelled', 'Job cancelled before the search started.')]
         db.commit()
     return detail(run, project_or_404(db, project_id))
 
@@ -122,18 +122,18 @@ def fix_and_run(db, store, project_id, run_id, payload):
     previous = db.scalar(select(RunRecord).where(RunRecord.project_id == project_id, RunRecord.request_key == payload.request_key))
     if previous:
         if previous.request_context != context:
-            raise ServiceError(409, 'request_key_conflict', 'Ключ относится к другому закреплению.')
+            raise ServiceError(409, 'request_key_conflict', 'The key belongs to a different pinned assignment.')
         return FixedRun(task=TaskSpec.model_validate(db.get(TaskRecord, previous.task_id).payload), run=detail(previous, project))
     original = run_or_404(db, project_id, run_id)
     if (original.source_id != payload.source_version_id or original.task_id != payload.task_spec_id
         or project.head_source_id != original.source_id or project.head_task_id != original.task_id):
-        raise ServiceError(409, 'run_inputs_stale', 'Для закреплений откройте расчёт текущего исходника и условий.')
+        raise ServiceError(409, 'run_inputs_stale', 'To pin assignments, open a calculation for the current source and constraints.')
     result = SolveResult.model_validate(original.result) if original.result else None
     selected = next((s for s in result.scenarios if s.scenario.id == payload.scenario_id), None) if result else None
     if not selected or selected.validation.status != 'pass':
-        raise ServiceError(422, 'scenario_unverified', 'Закреплять можно назначения проверенного варианта.')
+        raise ServiceError(422, 'scenario_unverified', 'Only assignments from a validated option can be pinned.')
     if len(set(payload.shift_ids)) != len(payload.shift_ids) or any(sid not in selected.scenario.assignments for sid in payload.shift_ids):
-        raise ServiceError(422, 'fixed_reference', 'Выберите уникальные смены проверенного варианта.')
+        raise ServiceError(422, 'fixed_reference', 'Select unique shifts from a validated option.')
     old = TaskSpec.model_validate(db.get(TaskRecord, original.task_id).payload)
     task = save_task(db, project_id, SaveTask(expected_source_version_id=original.source_id, expected_task_id=old.id,
         request=old.request, absence=old.absence, objective=old.objective, fixed_assignments={**old.fixed_assignments,

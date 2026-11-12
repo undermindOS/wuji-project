@@ -57,7 +57,7 @@ def workbook_bytes(tables, documents, metadata):
                 if isinstance(value,str):
                     value=ILLEGAL_CHARACTERS_RE.sub(lambda m:'\\u'+format(ord(m.group()),'04x'),value)
                     if len(value)>30000:
-                        raise ServiceError(422,'export_cell_size','Содержимое ячейки превышает безопасный размер XLSX. Данные не обрезались.')
+                        raise ServiceError(422,'export_cell_size','Cell content exceeds the safe XLSX size. No data was truncated.')
                 row.append(value)
             page.append(row)
         for row in page:
@@ -121,7 +121,7 @@ def build_export(approval, format):
     tables=source_tables(result,sparse=True)
     data={kind:csv_bytes(rows) for kind,rows in tables.items()}
     if any(len(tables[kind])-1>LIMITS[kind] or len(raw)>MAX_FILE_BYTES for kind,raw in data.items()):
-        raise ServiceError(422,'export_limit','Результат превышает пределы повторного импорта. Данные не обрезались.')
+        raise ServiceError(422,'export_limit','The result exceeds reimport limits. No data was truncated.')
     metadata={'timezone':source.timezone,'currency':source.currency,'team_name':source.team_name}
     summary={'approvalId':approval.id,'approvedAt':approval.created_at.astimezone(timezone.utc).isoformat(),'actor':snapshot['actor'],
         'sourceVersionId':source.id,'sourceVersion':source.version,'sourceHash':source.content_hash,
@@ -144,17 +144,17 @@ def build_export(approval, format):
         'files':{name:hashlib.sha256(raw).hexdigest() for name,raw in entries.items()}}
     entries['manifest.json']=json_bytes(documents['manifest.json'])
     if sum(map(len,entries.values()))>40*1024*1024:
-        raise ServiceError(422,'export_size','Раскрытый набор превышает 40 МБ. Данные не обрезались.')
+        raise ServiceError(422,'export_size','The uncompressed bundle exceeds 40 MB. No data was truncated.')
     if format=='csv':
         content,media,extension=stable_zip(entries),'application/zip','zip'
     else:
         content,media,extension=workbook_bytes(tables,documents,metadata),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','xlsx'
     if len(content)>(MAX_FILE_BYTES if format=='xlsx' else 40*1024*1024):
-        raise ServiceError(422,'export_size','Файл превышает поддержанный размер. Данные не обрезались.')
+        raise ServiceError(422,'export_size','The file exceeds the supported size. No data was truncated.')
     if format=='xlsx':
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             if sum(item.file_size for item in archive.infolist())>20*1024*1024:
-                raise ServiceError(422,'export_size','Раскрытый XLSX превышает 20 МБ и не подходит для повторного импорта. Данные не обрезались.')
+                raise ServiceError(422,'export_size','The uncompressed XLSX exceeds 20 MB and cannot be reimported. No data was truncated.')
     return content,media,'wuji-approved-'+approval.id[:8]+'-s'+str(source.version)+'-t'+str(task.version)+'.'+extension
 
 
@@ -162,7 +162,7 @@ def prepare_export(db, store, project_id, approval_id, body):
     project=project_or_404(db,project_id,lock=True)
     approval=approval_or_404(db,project_id,approval_id)
     if approval.candidate_hash!=body.candidate_hash:
-        raise ServiceError(409,'export_candidate','Экспорт запрошен для другого утверждения.')
+        raise ServiceError(409,'export_candidate','Export was requested for a different approval.')
     source=SourceVersion.model_validate(approval.snapshot['source'])
     originals(store,source)
     previous=db.scalar(select(ExportRecord).where(ExportRecord.approval_id==approval.id,
@@ -172,11 +172,11 @@ def prepare_export(db, store, project_id, approval_id, body):
         return export_receipt(previous)
     require_current(project,approval.source_id,approval.task_id)
     if project.head_approval_id!=approval.id:
-        raise ServiceError(409,'approval_superseded','Выбран другой утверждённый вариант. Старые готовые файлы остаются в истории.')
+        raise ServiceError(409,'approval_superseded','A different approved option is selected. Previously prepared files remain in history.')
     candidate=ReviewCandidate.model_validate(approval.snapshot['candidate'])
     validation,metrics,evidence=evaluate(source,TaskSpec.model_validate(approval.snapshot['task']),candidate.scenario)
     if validation!=candidate.validation or metrics!=candidate.metrics or evidence!=candidate.evidence or validation.status!='pass':
-        raise ServiceError(409,'export_validation','Проверка утверждённого снимка изменилась. Нужны новая проверка и утверждение.')
+        raise ServiceError(409,'export_validation','Validation of the approved snapshot has changed. Validate and approve again.')
     content,media,filename=build_export(approval,body.format)
     saved=store.save(filename,'approved_export',content)
     record=ExportRecord(id=str(uuid4()),project_id=project_id,approval_id=approval.id,format=body.format,
@@ -190,7 +190,7 @@ def download_export(db, store, project_id, export_id):
     project_or_404(db,project_id)
     record=db.scalar(select(ExportRecord).where(ExportRecord.id==export_id,ExportRecord.project_id==project_id))
     if not record:
-        raise ServiceError(404,'export_not_found','Файл не найден в этом проекте.')
+        raise ServiceError(404,'export_not_found','File not found in this project.')
     approval=approval_or_404(db,project_id,record.approval_id)
     originals(store,SourceVersion.model_validate(approval.snapshot['source']))
     return record,store.read(record.sha256)

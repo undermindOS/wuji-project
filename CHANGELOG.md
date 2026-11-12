@@ -54,6 +54,10 @@
 
 ### Изменено
 
+- Translate the complete website interface, demo data, server messages and export
+  content into English. Use English date and number formatting, ask AI clarification
+  questions in English, and support English month names and scheduling priorities.
+
 - Лендинг теперь описывает WuJi как решения с ИИ, которые можно проверить, а не
   пресеты скиллов: новый первый экран, сравнение с чёрным ящиком, пять меток
   доказательств, журнал запуска на синтетических данных. Выбор Uppermind/Undermind OS,

@@ -45,22 +45,22 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
     try:
         zone = ZoneInfo(timezone)
     except (ZoneInfoNotFoundError, ValueError):
-        issue('timezone', 'Укажите существующий часовой пояс IANA, например Europe/Moscow.')
+        issue('timezone', 'Specify a valid IANA time zone, such as Europe/Moscow.')
         zone = None
     if currency not in CURRENCIES:
-        issue('currency', 'Поддерживаются RUB, USD, EUR, UYU, ARS, BRL, GBP; одна валюта на проект.')
+        issue('currency', 'Supported currencies: RUB, USD, EUR, UYU, ARS, BRL, GBP; one currency per project.')
     if not team_name or len(team_name) > 120 or team_name != team_name.strip():
-        issue('team_name', 'Нужно название команды без крайних пробелов, до 120 символов.')
+        issue('team_name', 'A team name of up to 120 characters without leading or trailing spaces is required.')
     tables: dict[str, Table] = {}
     if not files:
-        issue('files_required', 'Выберите расписание и сотрудников в CSV либо один XLSX.')
+        issue('files_required', 'Select schedule and employee CSV files or one XLSX workbook.')
     for original, raw in files:
         if len(raw) > MAX_FILE_BYTES:
-            issue('file_size', 'Размер одного файла ограничен 5 МБ.', original=original)
+            issue('file_size', 'Each file is limited to 5 MB.', original=original)
             continue
         if original.kind == 'workbook':
             if len(files) != 1 or not original.filename.lower().endswith('.xlsx'):
-                issue('file_set', 'XLSX загружается отдельно, без CSV.', original=original)
+                issue('file_set', 'Upload XLSX separately, without CSV files.', original=original)
                 continue
             try:
                 with zipfile.ZipFile(io.BytesIO(raw)) as archive:
@@ -74,29 +74,29 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
                         approved,changed=inspect_approved_workbook(book)
                         if approved:
                             unknown-=APPROVED_SHEETS
-                            issue('approved_result_import','Импортируется новый исходник из результата WUJI. Прежнее утверждение и проверки не переносятся.',
+                            issue('approved_result_import','A new source is being imported from a WUJI result. Previous approval and validation are not carried over.',
                                 severity='warning',original=original)
                             if changed:
-                                issue('approved_result_changed','Таблицы или протокол отличаются от подготовленного файла. Проверьте изменения перед импортом.',
+                                issue('approved_result_changed','The tables or report differ from the prepared file. Review the changes before importing.',
                                     severity='warning',original=original)
                     if unknown:
-                        issue('unknown_sheets', 'Неизвестные листы: ' + ', '.join(sorted(unknown)) + '.', original=original)
+                        issue('unknown_sheets', 'Unknown sheets: ' + ', '.join(sorted(unknown)) + '.', original=original)
                     for name, kind in SHEETS.items():
                         if name not in book.sheetnames:
                             continue
                         ws = book[name]
                         if (ws.max_column or 0) > len(HEADERS[kind]) or (ws.max_row or 0) > LIMITS[kind] + 1:
-                            issue('sheet_size', f'Лист {name} превышает число столбцов шаблона или лимит строк.', original=original)
+                            issue('sheet_size', f'Sheet {name} exceeds the template’s column count or row limit.', original=original)
                             continue
                         values = []
                         for row_number, cells in enumerate(ws.iter_rows(), 1):
                             if row_number > LIMITS[kind] + 1:
-                                issue('row_limit', f'Превышен лимит строк для {name}.', original=original)
+                                issue('row_limit', f'Row limit exceeded for {name}.', original=original)
                                 break
                             row_values = []
                             for cell in cells:
                                 if cell.data_type == 'f':
-                                    issues.append(ImportIssue(severity='error', code='formula', message='Формулы не поддерживаются; загрузите явное значение.', filename=original.filename, sheet=name, row=row_number, column=cell.column_letter))
+                                    issues.append(ImportIssue(severity='error', code='formula', message='Formulas are not supported; upload an explicit value.', filename=original.filename, sheet=name, row=row_number, column=cell.column_letter))
                                 value = cell.value
                                 row_values.append('' if value is None else str(value).lower() if isinstance(value, bool) else str(value))
                             values.append((row_number, row_values))
@@ -104,22 +104,22 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
                     if 'Metadata' in book.sheetnames:
                         rows = list(book['Metadata'].iter_rows(values_only=True))
                         if not rows or tuple(rows[0]) != ('key', 'value'):
-                            issue('metadata_header', 'Лист Metadata должен начинаться со столбцов key,value.', original=original)
+                            issue('metadata_header', 'The Metadata sheet must start with key,value columns.', original=original)
                         else:
                             expected = {'timezone': timezone, 'currency': currency, 'team_name': team_name}
                             seen = set()
                             for row in rows[1:]:
                                 key, value = (list(row) + [None, None])[:2]
                                 if key not in expected or key in seen or value != expected.get(key):
-                                    issue('metadata_mismatch', 'Metadata не совпадает с подтверждаемыми названием, валютой или часовым поясом.', original=original)
+                                    issue('metadata_mismatch', 'Metadata does not match the team name, currency or time zone being confirmed.', original=original)
                                 seen.add(key)
                 finally:
                     book.close()
             except (ValueError, zipfile.BadZipFile, KeyError, OSError, TypeError, ParseError, InvalidFileException, RuntimeError, EOFError):
-                issue('xlsx_invalid', 'Не удалось прочитать XLSX по шаблону; проверьте формат и размер книги.', original=original)
+                issue('xlsx_invalid', 'Could not read XLSX using the template; check the workbook format and size.', original=original)
             continue
         if original.kind not in HEADERS or not original.filename.lower().endswith('.csv'):
-            issue('format', 'Для этого поля нужен CSV в UTF-8.', original=original)
+            issue('format', 'This field requires a UTF-8 CSV file.', original=original)
             continue
         try:
             text = raw.decode('utf-8-sig')
@@ -133,17 +133,17 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
                     break
                 values.append((start_line, row))
                 if len(values) > LIMITS[original.kind] + 1:
-                    issue('row_limit', f'Превышен лимит строк: {LIMITS[original.kind]}.', original=original)
+                    issue('row_limit', f'Row limit exceeded: {LIMITS[original.kind]}.', original=original)
                     break
             tables[original.kind] = _table(original.kind, original, None, values, issue)
         except UnicodeDecodeError:
-            issue('encoding', 'Файл должен быть в UTF-8; автоматическая смена кодировки не выполняется.', original=original)
+            issue('encoding', 'The file must use UTF-8; encoding is not converted automatically.', original=original)
         except csv.Error:
-            issue('csv_invalid', 'Некорректные кавычки или структура CSV.', original=original)
+            issue('csv_invalid', 'Invalid CSV quoting or structure.', original=original)
 
     for required in ['schedule', 'employees']:
         if required not in tables:
-            issue('missing_table', f'Не найдена обязательная таблица {required}.')
+            issue('missing_table', f'Required table {required} not found.')
     row_counts = {kind: table.count for kind, table in tables.items()}
     preview_rows = [PreviewRow(filename=t.original.filename, sheet=t.sheet, row=row, values=values)
         for t in tables.values() for row, values in t.rows[:4]]
@@ -153,13 +153,13 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
 
     def text_value(value, table, row, column, identifier=False):
         if not value or value != value.strip() or len(value) > (64 if identifier else 160) or any(ord(c) < 32 for c in value):
-            issue('text', 'Пустое, слишком длинное значение, управляющий символ или крайние пробелы.', table, row, column)
+            issue('text', 'Empty or excessively long value, control character, or leading/trailing spaces.', table, row, column)
             return None
         if identifier and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]*', value):
-            issue('identifier', 'ID: латинские буквы, цифры, _, ., : и -; до 64 символов.', table, row, column)
+            issue('identifier', 'IDs may contain Latin letters, digits, _, ., : and -; up to 64 characters.', table, row, column)
             return None
         if not identifier and value[0] in '=+-@':
-            issue('formula_text', 'Текстовое поле не должно начинаться с признака формулы (=, +, -, @).', table, row, column)
+            issue('formula_text', 'A text field must not start with a formula marker (=, +, -, @).', table, row, column)
             return None
         return value
 
@@ -167,7 +167,7 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
         if optional and value == '':
             return None
         if not re.fullmatch(r'0|[1-9][0-9]*', value) or len(value) > 12 or int(value) > maximum:
-            issue('integer', f'Нужно целое число от 0 до {maximum}' + (' или пустое значение.' if optional else '.'), table, row, column)
+            issue('integer', f'An integer between 0 and {maximum} is required' + (' or an empty value.' if optional else '.'), table, row, column)
             return None
         return int(value)
 
@@ -182,7 +182,7 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
                 raise ValueError('timezone offset mismatch')
             return date
         except ValueError:
-            issue('datetime', 'Нужно время ISO с UTC-смещением выбранного пояса и точностью до минут; неоднозначное время не угадывается.', table, row, column)
+            issue('datetime', 'Use an ISO timestamp with the selected time zone’s UTC offset and minute precision; ambiguous times are not inferred.', table, row, column)
             return None
 
     if table := tables.get('employees'):
@@ -193,13 +193,13 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
             roles_raw = values.get('roles', '').split('|')
             roles = [text_value(value, table, row, 'roles') for value in roles_raw]
             if len(roles) != len(set(roles)) or len(roles) > 20:
-                issue('roles', 'Роли должны быть уникальны; максимум 20.', table, row, 'roles')
+                issue('roles', 'Roles must be unique; maximum 20.', table, row, 'roles')
             rate = integer(values.get('rate_per_hour_minor', ''), table, row, 'rate_per_hour_minor', 1_000_000_000, True)
             maximum = integer(values.get('max_weekly_minutes', ''), table, row, 'max_weekly_minutes', 10080)
             if values.get('currency') != currency:
-                issue('mixed_currency', 'Валюта сотрудника не совпадает с выбранной валютой проекта.', table, row, 'currency')
+                issue('mixed_currency', 'The employee’s currency does not match the selected project currency.', table, row, 'currency')
             if eid in employees:
-                issue('duplicate_employee', 'Повторный ID сотрудника; строки не объединяются.', table, row, 'employee_id')
+                issue('duplicate_employee', 'Duplicate employee ID; rows are not merged.', table, row, 'employee_id')
             if len(issues) == count_before and eid and name and maximum is not None:
                 refs = {key: _ref(table, row, key) for key in HEADERS['employees']}
                 refs['ratePerHourMinor'] = refs['rate_per_hour_minor']
@@ -214,13 +214,13 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
             start = date_value(values.get('starts_at', ''), table, row, 'starts_at')
             end = date_value(values.get('ends_at', ''), table, row, 'ends_at')
             if values.get('pinned') not in ['true', 'false']:
-                issue('boolean', 'Закрепление задаётся как true или false.', table, row, 'pinned')
+                issue('boolean', 'Pinned assignments must use true or false.', table, row, 'pinned')
             if eid not in employees:
-                issue('unknown_employee', 'В смене указан отсутствующий ID сотрудника.', table, row, 'employee_id')
+                issue('unknown_employee', 'The shift references a missing employee ID.', table, row, 'employee_id')
             if sid in shift_ids:
-                issue('duplicate_shift', 'Повторный ID смены; строки не объединяются.', table, row, 'shift_id')
+                issue('duplicate_shift', 'Duplicate shift ID; rows are not merged.', table, row, 'shift_id')
             if start and end and not 0 < (end.astimezone(dt_timezone.utc) - start.astimezone(dt_timezone.utc)).total_seconds() <= 86400:
-                issue('duration', 'Смена должна длиться от 1 минуты до 24 часов.', table, row, 'ends_at')
+                issue('duration', 'A shift must last between 1 minute and 24 hours.', table, row, 'ends_at')
             if len(issues) == count_before and sid and eid and role and start and end:
                 shift_ids.add(sid)
                 shifts.append(Shift(id=sid, employee_id=eid, role=role, starts_at=start.isoformat(timespec='seconds'),
@@ -229,23 +229,23 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
     if shifts and zone:
         weeks = {datetime.fromisoformat(shift.starts_at).astimezone(zone).isocalendar()[:2] for shift in shifts}
         if len(weeks) > 1:
-            issue('week_range', 'В первой версии импортируется одна календарная неделя.')
+            issue('week_range', 'This version imports one calendar week at a time.')
     availability: dict[tuple[str, str], tuple[str, SourceRef]] = {}
     if table := tables.get('availability'):
         for row, values in table.rows:
             eid, sid, value = values.get('employee_id'), values.get('shift_id'), values.get('availability')
             if eid not in employees:
-                issue('unknown_employee', 'Неизвестный ID сотрудника в доступности.', table, row, 'employee_id')
+                issue('unknown_employee', 'Unknown employee ID in availability.', table, row, 'employee_id')
             if sid not in shift_ids:
-                issue('unknown_shift', 'Неизвестный ID смены в доступности.', table, row, 'shift_id')
+                issue('unknown_shift', 'Unknown shift ID in availability.', table, row, 'shift_id')
             if value not in ['available', 'unavailable', 'unknown']:
-                issue('availability', 'Допустимы available, unavailable, unknown.', table, row, 'availability')
+                issue('availability', 'Allowed values: available, unavailable, unknown.', table, row, 'availability')
             if (eid, sid) in availability:
-                issue('duplicate_availability', 'Повторная пара сотрудник–смена.', table, row, 'shift_id')
+                issue('duplicate_availability', 'Duplicate employee–shift pair.', table, row, 'shift_id')
             elif eid in employees and sid in shift_ids and value in ['available', 'unavailable', 'unknown']:
                 availability[eid, sid] = value, _ref(table, row, 'availability')
     if len(employees) * len(shifts) > LIMITS['availability']:
-        issue('matrix_limit', f'Нормализованная матрица доступности превышает {LIMITS["availability"]} пар. Сократите недельный набор.')
+        issue('matrix_limit', f'The normalized availability matrix exceeds {LIMITS["availability"]} pairs. Reduce the weekly dataset.')
         return ParsedImport(None, issues, row_counts, preview_rows)
     normalized_employees = []
     missing = 0
@@ -260,11 +260,11 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
                 missing += 1
         normalized_employees.append(employee.model_copy(update={'availability': states, 'source_refs': refs}))
     if missing:
-        issue('unknown_availability', f'Доступность неизвестна для {missing} пар сотрудник–смена; это не разрешение на назначение.', severity='warning')
+        issue('unknown_availability', f'Availability is unknown for {missing} employee–shift pairs; this is not permission to assign.', severity='warning')
     if any(employee.rate_per_hour_minor is None for employee in employees.values()):
-        issue('unknown_rate', 'Есть неизвестные ставки. Денежная оценка затронутых назначений будет недоступна.', severity='warning')
+        issue('unknown_rate', 'Some rates are unknown. Pay estimates for affected assignments will be unavailable.', severity='warning')
     if not shifts or not employees:
-        issue('empty_data', 'Нужны непустые таблицы сотрудников и смен.')
+        issue('empty_data', 'Nonempty employee and shift tables are required.')
     source = None
     if not any(item.severity == 'error' for item in issues):
         schedule_table = tables['schedule']
@@ -272,7 +272,7 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
             timezone=timezone, currency=currency, employees=normalized_employees, shifts=shifts)
         for kind, rows in source_tables(source).items():
             if len(csv_bytes(rows)) > MAX_FILE_BYTES:
-                issue('normalized_size', f'Таблица {kind} после нормализации превышает 5 МБ и не сможет пройти повторный импорт.', tables.get(kind))
+                issue('normalized_size', f'Table {kind} exceeds 5 MB after normalization and cannot be reimported.', tables.get(kind))
         if any(item.severity == 'error' for item in issues):
             source = None
     return ParsedImport(source, issues, row_counts, preview_rows)
@@ -285,20 +285,20 @@ def _ref(table, row, column):
 def _table(kind, original, sheet, values, issue):
     table = Table(kind, original, sheet, [], max(len(values) - 1, 0))
     if not values:
-        issue('empty_file', 'Файл или лист пуст.', table)
+        issue('empty_file', 'The file or sheet is empty.', table)
         return table
     header = values[0][1]
     if len(set(header)) != len(header):
-        issue('duplicate_columns', 'Заголовки столбцов повторяются.', table, values[0][0])
+        issue('duplicate_columns', 'Duplicate column headers.', table, values[0][0])
         return table
     missing = set(HEADERS[kind]) - set(header)
     extra = set(header) - set(HEADERS[kind])
     if missing or extra:
-        issue('columns', f'Отсутствуют столбцы: {", ".join(sorted(missing)) or "—"}; неизвестны: {", ".join(sorted(extra)) or "—"}.', table, values[0][0])
+        issue('columns', f'Missing columns: {", ".join(sorted(missing)) or "—"}; unknown columns: {", ".join(sorted(extra)) or "—"}.', table, values[0][0])
         return table
     for row, cells in values[1:]:
         if len(cells) != len(header):
-            issue('row_width', 'Число ячеек не совпадает с заголовком; строка не будет молча обрезана.', table, row)
+            issue('row_width', 'The cell count does not match the header; the row will not be silently truncated.', table, row)
             continue
         table.rows.append((row, dict(zip(header, cells))))
     return table

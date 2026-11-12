@@ -19,8 +19,8 @@ export default function ScheduleTable({ source, task, assignments, selectedShift
   }, [selectedShiftId, selectionSequence]);
   return (
     <div className="ws-table-wrap">
-      <table className="ws-schedule" aria-label={view === 'source' ? 'Исходное расписание' : 'Расписание выбранного варианта'}>
-        <thead><tr><th scope="col">День / смена</th><th scope="col">Сотрудник</th><th scope="col"><span className="ws-sr-only">Состояние</span></th></tr></thead>
+      <table className="ws-schedule" aria-label={view === 'source' ? 'Original schedule' : 'Selected option schedule'}>
+        <thead><tr><th scope="col">Day / shift</th><th scope="col">Employee</th><th scope="col"><span className="ws-sr-only">Status</span></th></tr></thead>
         <tbody>
           {source.shifts.map(shift => {
             const employee = source.employees.find(person => person.id === assignments[shift.id]);
@@ -31,13 +31,13 @@ export default function ScheduleTable({ source, task, assignments, selectedShift
               <tr key={shift.id} ref={selected ? selectedRow : undefined} data-selected={selected} data-changed={view === 'scenario' && changed} data-absent={absent} data-shift-id={shift.id}>
                 <td><span className="ws-day">{dayLabel(shift, source.timezone)}</span><span className="ws-time">{timeLabel(shift, source.timezone)}</span></td>
                 <td>
-                  <button type="button" className="ws-cell-button" onClick={() => onSelect(shift.id)} aria-pressed={selected} aria-label={`${view === 'source' ? 'Исходное назначение' : 'Назначение варианта'}: ${shift.id}, ${employee?.name ?? 'Не назначен'}`}>
-                    <span>{employee?.name ?? 'Не назначен'}</span>
-                    {absent ? <small className="ws-red">Отсутствует</small> : <small>{shift.role}</small>}
+                  <button type="button" className="ws-cell-button" onClick={() => onSelect(shift.id)} aria-pressed={selected} aria-label={`${view === 'source' ? 'Original assignment' : 'Option assignment'}: ${shift.id}, ${employee?.name ?? 'Unassigned'}`}>
+                    <span>{employee?.name ?? 'Unassigned'}</span>
+                    {absent ? <small className="ws-red">Absent</small> : <small>{shift.role}</small>}
                   </button>
                 </td>
                 <td className="ws-row-state">
-                  {shift.pinned ? <span title="Закреплённое назначение" aria-label="Закреплено">▣</span> : changed && view === 'scenario' ? <span className="ws-green" title="Назначение изменено" aria-label="Изменено">↗</span> : <span aria-hidden="true">·</span>}
+                  {shift.pinned ? <span title="Pinned assignment" aria-label="Pinned">▣</span> : changed && view === 'scenario' ? <span className="ws-green" title="Assignment changed" aria-label="Changed">↗</span> : <span aria-hidden="true">·</span>}
                 </td>
               </tr>
             );

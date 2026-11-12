@@ -22,10 +22,10 @@ export default function PaneDivider({ index, widths, setWidths }: PaneDividerPro
   return (
     <div
       className="ws-divider" role="separator" tabIndex={0} aria-orientation="vertical"
-      aria-label={index === 0 ? 'Ширина исходника и задачи' : 'Ширина задачи и сценария'}
+      aria-label={index === 0 ? 'Source and task panel widths' : 'Task and scenario panel widths'}
       aria-controls={index === 0 ? 'workspace-source workspace-task' : 'workspace-task workspace-scenario'}
       aria-valuenow={Math.round(widths[index])} aria-valuemin={MIN_WIDTH} aria-valuemax={Math.round(widths[index] + widths[index + 1] - MIN_WIDTH)}
-      aria-valuetext={`${Math.round(widths[index])}% ширины; стрелки изменяют размер, Home восстанавливает пропорции`}
+      aria-valuetext={`${Math.round(widths[index])}% width; use arrow keys to resize, Home to restore proportions`}
       onKeyDown={event => {
         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
           event.preventDefault(); update(widths, event.key === 'ArrowRight' ? 2 : -2);

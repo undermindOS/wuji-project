@@ -32,7 +32,7 @@ def work_once(settings, sessions, shutdown=None):
         token, run_id = str(uuid4()), run.id
         run.worker_token, run.status = token, 'running'
         run.started_at = run.heartbeat_at = now()
-        run.events = [*run.events, event('started', 'CP-SAT запущен отдельным worker-процессом.')]
+        run.events = [*run.events, event('started', 'CP-SAT started in a separate worker process.')]
         db.commit()
     cancelled, done = threading.Event(), threading.Event()
     solver_lock, active_solver = threading.Lock(), [None]
@@ -100,15 +100,15 @@ def work_once(settings, sessions, shutdown=None):
             return True
         if current.cancel_requested:
             current.status = 'cancelled'
-            current.events = [*current.events, event('cancelled', 'Расчёт отменён. Результаты не выданы.')]
+            current.events = [*current.events, event('cancelled', 'Calculation cancelled. No results returned.')]
         elif failure:
             current.status = 'failed'
-            message = 'Оригинальный файл отсутствует или изменён.' if failure == 'original_integrity' else 'Работа прервана. Можно запустить новый расчёт.'
+            message = 'The original file is missing or has changed.' if failure == 'original_integrity' else 'Work interrupted. You can start a new calculation.'
             current.events = [*current.events, event(failure, message)]
         else:
             current.result = result.model_dump(mode='json', by_alias=True)
             current.status = 'needs_clarification' if result.outcome == 'needs_clarification' else 'failed' if result.outcome == 'invalid' else 'completed'
-            current.events = [*current.events, event('finished', 'Поиск завершён. Допустимых различных вариантов: ' + str(len(result.scenarios)) + '.')]
+            current.events = [*current.events, event('finished', 'Search complete. Distinct feasible options: ' + str(len(result.scenarios)) + '.')]
         current.finished_at = current.heartbeat_at = now()
         db.commit()
     return True

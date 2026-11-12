@@ -39,7 +39,7 @@ export function useIntentDraft(snapshot: WorkspaceSnapshot | null, request: stri
         const next = await workspaceClient.getIntent(snapshot.project.id, draftId, controller.signal);
         apply(next);
         if (current() && isActiveIntent(next)) timer = setTimeout(() => void poll(draftId), 700);
-      } catch (value) { if (current()) setError(value instanceof Error ? value.message : 'Не удалось обновить черновик.'); }
+      } catch (value) { if (current()) setError(value instanceof Error ? value.message : 'Could not refresh the draft.'); }
     };
     void Promise.all([
       workspaceClient.getAiConfiguration(controller.signal),
@@ -57,7 +57,7 @@ export function useIntentDraft(snapshot: WorkspaceSnapshot | null, request: stri
       setHistory(list);
       const selected = list.find(item => item.id === id) ?? list.find(isActiveIntent) ?? list[0];
       if (selected) await poll(selected.id);
-    }).catch(value => { if (current()) setError(value instanceof Error ? value.message : 'Не удалось открыть подключение ИИ.'); })
+    }).catch(value => { if (current()) setError(value instanceof Error ? value.message : 'Could not load the AI connection.'); })
       .finally(() => { if (current()) setLoading(false); });
     return () => { generation.current++; controller.abort(); action.current?.abort(); clearTimeout(timer); };
   }, [scope, id, revision]);
@@ -71,7 +71,7 @@ export function useIntentDraft(snapshot: WorkspaceSnapshot | null, request: stri
       const value = await operation(controller.signal);
       if (generation.current === ticket && !controller.signal.aborted) accept(value);
     } catch (value) {
-      if (generation.current === ticket && !controller.signal.aborted) setError(value instanceof Error ? value.message : 'Не удалось выполнить запрос.');
+      if (generation.current === ticket && !controller.signal.aborted) setError(value instanceof Error ? value.message : 'Could not complete the request.');
     } finally {
       if (generation.current === ticket) { inFlight.current = false; setBusy(null); }
     }

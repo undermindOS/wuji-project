@@ -30,7 +30,7 @@ test('a valid download verifies size and SHA before handing its bytes to the bro
 });
 test('an HTML hosting fallback is reported as an unavailable service, not saved as a template',async()=>{
   const client=new HttpWorkspaceClient((async()=>new Response('<html>fallback</html>',{headers:{'Content-Type':'text/html; charset=utf-8'}})) as typeof fetch);
-  await assert.rejects(client.downloadTemplate('csv'),(error:unknown)=>error instanceof WorkspaceApiError&&error.code==='unavailable'&&error.message==='Сервис хранения недоступен. Демонстрация доступна отдельно.');
+  await assert.rejects(client.downloadTemplate('csv'),(error:unknown)=>error instanceof WorkspaceApiError&&error.code==='unavailable'&&error.message==='Storage service unavailable. The demo is available separately.');
 });
 test('a template download asks for the chosen format and returns its bytes',async()=>{
   const bytes=new Uint8Array([80,75,3,4]);
@@ -56,5 +56,5 @@ test('a backend error during a template download keeps its message',async()=>{
 });
 test('a network failure during a template download asks to reconnect',async()=>{
   const client=new HttpWorkspaceClient((async()=>{throw new TypeError('fetch failed');}) as typeof fetch);
-  await assert.rejects(client.downloadTemplate('csv'),(error:unknown)=>error instanceof WorkspaceApiError&&error.status===0&&error.code==='unavailable'&&error.message==='Сервис хранения недоступен. Повторите подключение.');
+  await assert.rejects(client.downloadTemplate('csv'),(error:unknown)=>error instanceof WorkspaceApiError&&error.status===0&&error.code==='unavailable'&&error.message==='Storage service unavailable. Try reconnecting.');
 });

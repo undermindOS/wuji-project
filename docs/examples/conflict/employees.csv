@@ -1,11 +1,11 @@
 employee_id,name,roles,rate_per_hour_minor,max_weekly_minutes,currency
-anna,Анна Волкова,Специалист,30000,1440,RUB
-roman,Роман Ким,Специалист|Старший специалист,28000,1440,RUB
-ilya,Илья Соколов,Специалист,26000,960,RUB
-daria,Дарья Морозова,Специалист|Старший специалист,30000,1440,RUB
-marina,Марина Белова,Специалист,28000,1440,RUB
-denis,Денис Орлов,Специалист,25000,480,RUB
-igor,Игорь Лебедев,Специалист,27000,960,RUB
-elena,Елена Петрова,Специалист,26000,960,RUB
-oleg,Олег Миронов,Специалист,24000,960,RUB
-sofia,София Ли,Специалист,32000,960,RUB
+anna,Anna Volkova,Specialist,30000,1440,RUB
+roman,Roman Kim,Specialist|Senior specialist,28000,1440,RUB
+ilya,Ilya Sokolov,Specialist,26000,960,RUB
+daria,Daria Morozova,Specialist|Senior specialist,30000,1440,RUB
+marina,Marina Belova,Specialist,28000,1440,RUB
+denis,Denis Orlov,Specialist,25000,480,RUB
+igor,Igor Lebedev,Specialist,27000,960,RUB
+elena,Elena Petrova,Specialist,26000,960,RUB
+oleg,Oleg Mironov,Specialist,24000,960,RUB
+sofia,Sofia Lee,Specialist,32000,960,RUB

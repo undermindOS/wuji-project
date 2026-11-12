@@ -109,7 +109,7 @@ test('calculations leave the input unchanged and separately loaded examples do n
   assert.deepEqual(first, snapshot);
   first.source.employees[0].name = 'Changed locally';
   const second = await demoWorkspaceClient.loadExample('absence');
-  assert.equal(second.source.employees[0].name, 'Анна Волкова');
+  assert.equal(second.source.employees[0].name, 'Anna Volkova');
 });
 
 test('an aborted load rejects without supplying a stale example', async () => {
@@ -141,10 +141,10 @@ test('inspectable CSV bundles match source rows, rates, availability, and versio
     const base = new URL(`../docs/examples/${option.id}/`, import.meta.url);
     const schedule = (await readFile(new URL(source.filename, base), 'utf8')).trimEnd().split('\n');
     assert.equal(schedule.length, 15);
-    assert.equal(schedule[5], `s05,2026-11-04T09:00:00+03:00,2026-11-04T17:00:00+03:00,Специалист,anna,${option.id === 'conflict'}`);
+    assert.equal(schedule[5], `s05,2026-11-04T09:00:00+03:00,2026-11-04T17:00:00+03:00,Specialist,anna,${option.id === 'conflict'}`);
     const people = (await readFile(new URL('employees.csv', base), 'utf8')).trimEnd().split('\n');
     assert.equal(people.length, 11);
-    assert.equal(people[10], `sofia,София Ли,Специалист,${option.id === 'missing-rate' ? '' : '32000'},960,RUB`);
+    assert.equal(people[10], `sofia,Sofia Lee,Specialist,${option.id === 'missing-rate' ? '' : '32000'},960,RUB`);
     const availability = (await readFile(new URL('availability.csv', base), 'utf8')).trimEnd().split('\n');
     assert.equal(availability.length, 141);
     assert(availability.includes(`sofia,s05,${option.id === 'unknown-availability' ? 'unknown' : 'available'}`));

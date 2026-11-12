@@ -37,7 +37,7 @@ export function useScenarioReview(snapshot:WorkspaceSnapshot|null,run:RunDetail|
       if (controller.signal.aborted||generation.current!==ticket) return;
       if (next&&run&&!reviewBelongsTo(next,snapshot,run.id)) return;
       setLoaded({scope,review:next,approvals:history});
-    }).catch(value=>{if(!controller.signal.aborted&&generation.current===ticket)setError(value instanceof Error?value.message:'Не удалось открыть версии и утверждения.');})
+    }).catch(value=>{if(!controller.signal.aborted&&generation.current===ticket)setError(value instanceof Error?value.message:'Could not load revisions and approvals.');})
       .finally(()=>{if(generation.current===ticket)setLoading(false);});
     return ()=>{generation.current++;controller.abort();action.current?.abort();};
   },[scope,run?.status,refresh]);
@@ -54,7 +54,7 @@ export function useScenarioReview(snapshot:WorkspaceSnapshot|null,run:RunDetail|
       const result=await operation(controller.signal);
       if(!controller.signal.aborted&&generation.current===ticket) {delete keys.current[kind];accept(result);}
     } catch(value) {
-      if(!controller.signal.aborted&&generation.current===ticket)setError(value instanceof Error?value.message:'Операция не завершена. Повторите запрос.');
+      if(!controller.signal.aborted&&generation.current===ticket)setError(value instanceof Error?value.message:'The operation did not complete. Try again.');
     } finally {if(generation.current===ticket){inFlight.current=false;setBusy(null);}}
   }
   const adopt=(next:ReviewCandidate)=>{

@@ -92,7 +92,7 @@ def conflict_finder(source, task):
         model.add_assumptions([holds[c] for c in ordered])
         solver, status = run(model)
         if status != 'INFEASIBLE':
-            raise Inconclusive('не хватило лимита времени' if status == 'UNKNOWN' else 'поиск конфликта разошёлся с основной задачей')
+            raise Inconclusive('the time limit was reached' if status == 'UNKNOWN' else 'conflict search disagreed with the main problem')
         found = set(solver.sufficient_assumptions_for_infeasibility())
         return [c for c in ordered if holds[c].index in found]
 
@@ -127,16 +127,16 @@ def without(source, task, lifted):
 
 
 def listed(items):
-    return ', '.join([*items[:NAMED_IN_FULL], *([f'ещё {len(items) - NAMED_IN_FULL}'] if len(items) > NAMED_IN_FULL else [])])
+    return ', '.join([*items[:NAMED_IN_FULL], *([f'{len(items) - NAMED_IN_FULL} more'] if len(items) > NAMED_IN_FULL else [])])
 
 
 def people(names):
-    return ('сотрудника ' if len(names) == 1 else 'сотрудников ') + listed(names)
+    return ('employee ' if len(names) == 1 else 'employees ') + listed(names)
 
 
 def duration(minutes):
     hours, rest = divmod(minutes, 60)
-    return ' '.join(([f'{hours} ч'] if hours or not rest else []) + ([f'{rest} мин'] if rest else []))
+    return ' '.join(([f'{hours} h'] if hours or not rest else []) + ([f'{rest} min'] if rest else []))
 
 
 def clause(group, source):
@@ -144,13 +144,13 @@ def clause(group, source):
     limits = {e.id: e.max_weekly_minutes for e in source.employees}
     names = [name[c.employee_id] for c in group if c.employee_id]
     return {
-        'source_pin': lambda: f'закрепление смены {first.shift_id} за сотрудником {names[0]} в исходнике',
-        'fixed_assignment': lambda: f'закрепление смены {first.shift_id} за сотрудником {names[0]} в условиях',
-        'absence': lambda: f'отсутствие сотрудника {names[0]} на смене {first.shift_id}',
-        'coverage': lambda: ('требование закрыть смену ' if len(group) == 1 else 'требование закрыть смены ') + listed([c.shift_id for c in group]),
-        'role': lambda: f'нет роли «{first.role}» у {people(names)}',
-        'availability': lambda: f'недоступность {people(names)} на смене {first.shift_id}',
-        'hours': lambda: f'лимит часов {people(names)}: {duration(limits[first.employee_id])} в неделю',
+        'source_pin': lambda: f'source pin assigning shift {first.shift_id} to employee {names[0]}',
+        'fixed_assignment': lambda: f'constraint pin assigning shift {first.shift_id} to employee {names[0]}',
+        'absence': lambda: f'employee {names[0]} absent during shift {first.shift_id}',
+        'coverage': lambda: ('requirement to cover shift ' if len(group) == 1 else 'requirement to cover shifts ') + listed([c.shift_id for c in group]),
+        'role': lambda: f'missing role “{first.role}” for {people(names)}',
+        'availability': lambda: f'unavailability of {people(names)} during shift {first.shift_id}',
+        'hours': lambda: f'hour limit for {people(names)}: {duration(limits[first.employee_id])} per week',
     }[first.kind]()
 
 
@@ -166,26 +166,26 @@ def grouped(conflict, checks, source):
 def overlaps(conflict, source):
     named = {c.shift_id for c in conflict}
     spans = [(s.id, *span(s)) for s in source.shifts if s.id in named]
-    return [f'{a} и {b}' for i, (a, start, end) in enumerate(spans) for b, other_start, other_end in spans[i + 1:] if start < other_end and other_start < end]
+    return [f'{a} and {b}' for i, (a, start, end) in enumerate(spans) for b, other_start, other_end in spans[i + 1:] if start < other_end and other_start < end]
 
 
 def verdict(groups, checks, others, together):
-    scope = ' при снятых остальных конфликтах' if others else ''
+    scope = ' with the other conflicts removed' if others else ''
     if all(checks[group[0]] == 'solution' for group in groups):
-        return f'Проверено{scope}: без любого из этих условий решение появляется.'
-    outcomes = {'solution': 'решение появляется', 'solution_if_confirmed': 'решение появится, только если подтвердится неизвестная доступность',
-        'no_solution': 'решения всё равно нет'}
+        return f'Verified{scope}: removing any one of these constraints makes a solution feasible.'
+    outcomes = {'solution': 'a solution becomes feasible', 'solution_if_confirmed': 'a solution becomes feasible only if unknown availability is confirmed',
+        'no_solution': 'there is still no solution'}
     parts = []
     for outcome, words in outcomes.items():
         points = [number for number, group in enumerate(groups, 1) if checks[group[0]] == outcome]
         if len(points) == 1 and len(groups[points[0] - 1]) == 1:
-            parts.append(f'без условия {points[0]} {words}')
+            parts.append(f'without constraint {points[0]}, {words}')
         elif points:
-            parts.append(f'без любого из условий п. {", ".join(map(str, points))} {words}')
+            parts.append(f'without any one of constraints {", ".join(map(str, points))}, {words}')
     tail = ''
     if all(checks[group[0]] == 'no_solution' for group in groups):
-        tail = f' Без всех этих условий вместе{scope} {outcomes[together]}.'
-    return f'Проверено{scope}: ' + '; '.join(parts) + '.' + tail
+        tail = f' With all these constraints removed together{scope}, {outcomes[together]}.'
+    return f'Verified{scope}: ' + '; '.join(parts) + '.' + tail
 
 
 def code_of(conflict):
@@ -211,10 +211,10 @@ def references(condition, source):
 def report(conflict, checks, position, total, together, source, unknown):
     groups = grouped(conflict, checks, source)
     crossing = overlaps(conflict, source)
-    lines = [(f'Конфликт {position} из {total}. ' if total > 1 else '') + 'Нельзя выполнить вместе:',
+    lines = [(f'Conflict {position} of {total}. ' if total > 1 else '') + 'These constraints cannot be satisfied together:',
         ';\n'.join(f'{number}) {clause(group, source)}' for number, group in enumerate(groups, 1)) + '.',
-        *(['Решения нет, даже если вся неизвестная доступность подтвердится.'] if unknown else []),
-        *(['Пересекаются: ' + listed(crossing) + '.'] if crossing else []),
+        *(['There is no solution even if all unknown availability is confirmed.'] if unknown else []),
+        *(['Overlapping shifts: ' + listed(crossing) + '.'] if crossing else []),
         verdict(groups, checks, total > 1, together)]
     return SolveIssue(code=code_of(conflict), message='\n'.join(lines),
         shift_ids=sorted({c.shift_id for c in conflict if c.shift_id}), employee_ids=sorted({c.employee_id for c in conflict if c.employee_id}),
@@ -229,7 +229,7 @@ def explain(source, task, exists, run, unknown, event):
 
     def settled(result):
         if result.outcome not in {'solutions', 'infeasible'}:
-            raise Inconclusive('не хватило лимита времени' if result.outcome == 'limit' else 'проверка не подтвердила результат')
+            raise Inconclusive('the time limit was reached' if result.outcome == 'limit' else 'validation did not confirm the result')
         return result.scenarios[0].scenario.assignments if result.scenarios else None
 
     def schedule_without(inputs, lifted, close_to=None, free=()):
@@ -249,7 +249,7 @@ def explain(source, task, exists, run, unknown, event):
 
     def narrowed(core):
         if schedule_without(wide, everything.difference(core)) is not None:
-            raise Inconclusive('проверка не подтвердила предложенный конфликт')
+            raise Inconclusive('validation did not confirm the proposed conflict')
         kept = list(core)
         for condition in sorted(core, key=reading_order, reverse=True):
             rest = [c for c in kept if c != condition]
@@ -274,5 +274,5 @@ def explain(source, task, exists, run, unknown, event):
         free = {c.shift_id for c in conflict}
         checks = {c: after_removal((lifted - set(conflict)) | {c}, reference, free)[0] for c in conflict}
         issues.append(report(conflict, checks, position, len(conflicts), together, source, unknown))
-    event('diagnosis', f'Диагностика причин: конфликтов {len(conflicts)}, снятие проверено для условий: {len(lifted)}.')
+    event('diagnosis', f'Conflict diagnosis: {len(conflicts)} conflicts; removal tested for {len(lifted)} constraints.')
     return issues

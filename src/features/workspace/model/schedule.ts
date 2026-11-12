@@ -75,10 +75,10 @@ export function checkSchedule(source: SourceVersion, task: TaskSpec, scenario: S
   const wrongVersion = task.sourceVersionId !== source.id || scenario.sourceVersionId !== source.id || scenario.taskSpecId !== task.id;
   const badKeys = Object.keys(scenario.assignments).filter(id => !shiftIds.has(id));
   const duplicateIds = employees.size !== source.employees.length || shiftIds.size !== source.shifts.length;
-  add('references', 'Версии и записи', [...badReferences, ...badKeys, ...(wrongVersion || duplicateIds ? ['version-or-id'] : [])],
-    wrongVersion || duplicateIds || badReferences.length || badKeys.length ? 'Обнаружены несовпадающие версии или неизвестные/повторные записи.' : 'Версии совпадают; назначения ссылаются на существующих сотрудников.');
+  add('references', 'Versions and records', [...badReferences, ...badKeys, ...(wrongVersion || duplicateIds ? ['version-or-id'] : [])],
+    wrongVersion || duplicateIds || badReferences.length || badKeys.length ? 'Mismatched versions or unknown/duplicate records found.' : 'Versions match; assignments reference existing employees.');
   const uncovered = source.shifts.filter(shift => !employees.has(scenario.assignments[shift.id])).map(shift => shift.id);
-  add('coverage', 'Покрытие смен', uncovered, uncovered.length ? `Не закрыто смен: ${uncovered.length}.` : `Все ${source.shifts.length} смен имеют назначение.`);
+  add('coverage', 'Shift coverage', uncovered, uncovered.length ? `Uncovered shifts: ${uncovered.length}.` : `All ${source.shifts.length} shifts are assigned.`);
   const unavailable: string[] = [];
   const unknownAvailability: string[] = [];
   const wrongRole: string[] = [];
@@ -95,13 +95,13 @@ export function checkSchedule(source: SourceVersion, task: TaskSpec, scenario: S
     if (task.fixedAssignments?.[shift.id] && employee.id !== task.fixedAssignments[shift.id]) changedPins.push(shift.id);
     minutes.set(employee.id, (minutes.get(employee.id) ?? 0) + durationMinutes(shift));
   }
-  add('availability', 'Доступность', unavailable,
-    unavailable.length ? 'Есть назначение в подтверждённое время отсутствия.' : unknownAvailability.length ? 'Доступность замены не подтверждена. Условие требует уточнения.' : 'У всех назначенных сотрудников подтверждена доступность.', unknownAvailability);
-  add('roles', 'Роли сотрудников', wrongRole, wrongRole.length ? 'Роль сотрудника не подходит для смены.' : 'Квалификация соответствует каждой смене.');
-  add('pinned', 'Закреплённые смены', changedPins, changedPins.length ? 'Изменено закреплённое назначение.' : 'Все закреплённые назначения сохранены.');
+  add('availability', 'Availability', unavailable,
+    unavailable.length ? 'An assignment falls within a confirmed absence.' : unknownAvailability.length ? 'Replacement availability is unconfirmed. Clarification is required.' : 'Availability is confirmed for every assigned employee.', unknownAvailability);
+  add('roles', 'Employee roles', wrongRole, wrongRole.length ? 'An employee’s role does not match the shift.' : 'Qualifications match every shift.');
+  add('pinned', 'Pinned shifts', changedPins, changedPins.length ? 'A pinned assignment was changed.' : 'All pinned assignments are preserved.');
   const overHours = source.employees.filter(employee => (minutes.get(employee.id) ?? 0) > employee.maxWeeklyMinutes);
-  add('hours', 'Лимиты часов', overHours.flatMap(employee => source.shifts.filter(shift => scenario.assignments[shift.id] === employee.id).map(shift => shift.id)),
-    overHours.length ? `Превышен лимит: ${overHours.map(employee => employee.name).join(', ')}.` : 'Индивидуальные недельные лимиты соблюдены.');
+  add('hours', 'Hour limits', overHours.flatMap(employee => source.shifts.filter(shift => scenario.assignments[shift.id] === employee.id).map(shift => shift.id)),
+    overHours.length ? `Limit exceeded: ${overHours.map(employee => employee.name).join(', ')}.` : 'Individual weekly limits are respected.');
   const overlapping = new Set<string>();
   source.shifts.forEach((a, index) => {
     for (const b of source.shifts.slice(index + 1)) {
@@ -111,7 +111,7 @@ export function checkSchedule(source: SourceVersion, task: TaskSpec, scenario: S
       }
     }
   });
-  add('overlap', 'Пересечения', [...overlapping], overlapping.size ? 'Сотрудник назначен на пересекающиеся смены.' : 'У одного человека нет пересекающихся смен.');
+  add('overlap', 'Overlaps', [...overlapping], overlapping.size ? 'An employee is assigned to overlapping shifts.' : 'No employee has overlapping shifts.');
   return checks;
 }
 
@@ -122,15 +122,15 @@ export function overallStatus(checks: DemoCheck[]): CheckStatus {
 }
 
 export function money(minor: number | null, currency = 'RUB', signed = false): string {
-  if (minor === null) return 'Неизвестно';
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: minor % 100 === 0 ? 0 : 2, signDisplay: signed ? 'exceptZero' : 'auto' }).format(minor / 100);
+  if (minor === null) return 'Unknown';
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: minor % 100 === 0 ? 0 : 2, signDisplay: signed ? 'exceptZero' : 'auto' }).format(minor / 100);
 }
 
 export function dayLabel(shift: Shift, timezone: string): string {
-  return new Intl.DateTimeFormat('ru-RU', { weekday: 'short', day: '2-digit', timeZone: timezone }).format(new Date(shift.startsAt));
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: '2-digit', timeZone: timezone }).format(new Date(shift.startsAt));
 }
 
 export function timeLabel(shift: Shift, timezone: string): string {
-  const formatter = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: timezone });
+  const formatter = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: timezone });
   return `${formatter.format(new Date(shift.startsAt))}–${formatter.format(new Date(shift.endsAt))}`;
 }

@@ -11,19 +11,19 @@ from .schemas import ConfirmIntent, IntentDraft, IntentOrigin, IntentProposal, S
 from .service import ServiceError, project_or_404, save_task, source_or_404
 
 FAILURES = {
-    'provider_timeout': 'Провайдер не ответил за отведённое время.',
-    'provider_unavailable': 'Не удалось подключиться к провайдеру.',
-    'provider_auth': 'Провайдер отклонил серверный ключ или доступ к модели.',
-    'provider_rate_limit': 'Провайдер ограничил запросы или баланс.',
-    'provider_error': 'Провайдер вернул ошибку.',
-    'provider_incomplete': 'Ответ не завершён. Частичные условия не используются.',
-    'provider_refusal': 'Модель не выдала черновик условий.',
-    'provider_schema': 'Ответ не соответствует разрешённой схеме.',
-    'provider_model_mismatch': 'Модель ответа не совпала с настроенной моделью.',
-    'original_integrity': 'Оригинальный файл отсутствует или изменён.',
-    'worker_error': 'Разбор прерван. Сохранённые условия не менялись.',
-    'worker_lost': 'Процесс разбора не подтвердил работу за 60 секунд. Можно повторить запрос.',
-    'cancelled': 'Разбор отменён. Условия не изменены.',
+    'provider_timeout': 'The provider did not respond within the time limit.',
+    'provider_unavailable': 'Could not connect to the provider.',
+    'provider_auth': 'The provider rejected the server key or model access.',
+    'provider_rate_limit': 'The provider limited requests or account balance.',
+    'provider_error': 'The provider returned an error.',
+    'provider_incomplete': 'The response is incomplete. Partial constraints are not used.',
+    'provider_refusal': 'The model did not return a constraint draft.',
+    'provider_schema': 'The response does not match the allowed schema.',
+    'provider_model_mismatch': 'The response model does not match the configured model.',
+    'original_integrity': 'The original file is missing or has changed.',
+    'worker_error': 'Interpretation interrupted. Saved constraints were not changed.',
+    'worker_lost': 'The interpretation process did not report activity within 60 seconds. You can try again.',
+    'cancelled': 'Interpretation cancelled. Constraints were not changed.',
 }
 
 
@@ -43,7 +43,7 @@ def intent_or_404(db, project_id, draft_id, lock=False):
     query = select(IntentRecord).where(IntentRecord.project_id == project_id, IntentRecord.id == draft_id)
     record = db.scalar(query.with_for_update() if lock else query)
     if not record:
-        raise ServiceError(404, 'intent_not_found', 'Черновик не найден в этом проекте.')
+        raise ServiceError(404, 'intent_not_found', 'Draft not found in this project.')
     return record
 
 
@@ -66,23 +66,23 @@ def start_intent(db, store, settings, project_id, body):
     if previous:
         if (previous.source_id, previous.task_id, previous.request, previous.max_cost_micro_usd) != (
             body.source_version_id, body.task_spec_id, body.request, body.max_cost_micro_usd):
-            raise ServiceError(409, 'intent_key_conflict', 'Этот ключ относится к другому запросу.')
+            raise ServiceError(409, 'intent_key_conflict', 'This key belongs to a different request.')
         if not body.consent:
-            raise ServiceError(422, 'intent_consent', 'Нужно подтвердить передачу контекста провайдеру.')
+            raise ServiceError(422, 'intent_consent', 'Confirm that context may be sent to the provider.')
         return detail(previous, project)
     if not body.consent:
-        raise ServiceError(422, 'intent_consent', 'Подтвердите передачу текста и минимального контекста провайдеру.')
+        raise ServiceError(422, 'intent_consent', 'Confirm that the request text and minimal context may be sent to the provider.')
     if project.head_source_id != body.source_version_id or project.head_task_id != body.task_spec_id:
-        raise ServiceError(409, 'intent_stale', 'Исходник или условия изменились. Откройте текущую версию.')
+        raise ServiceError(409, 'intent_stale', 'The source or constraints have changed. Open the current version.')
     if not body.request.strip():
-        raise ServiceError(422, 'intent_empty', 'Введите запрос.')
+        raise ServiceError(422, 'intent_empty', 'Enter a request.')
     if db.scalar(select(IntentRecord.id).where(IntentRecord.project_id == project_id, IntentRecord.source_id == body.source_version_id,
         IntentRecord.task_id == body.task_spec_id, IntentRecord.status.in_(['queued','running']))):
-        raise ServiceError(409, 'intent_active', 'Для этих входов уже выполняется разбор. Дождитесь результата или отмените его.')
+        raise ServiceError(409, 'intent_active', 'Interpretation is already running for these inputs. Wait for the result or cancel it.')
     source = source_or_404(db, project_id, body.source_version_id)
     task_record = db.get(TaskRecord, body.task_spec_id)
     if not task_record or task_record.project_id != project_id or task_record.source_id != source.id:
-        raise ServiceError(404, 'task_not_found', 'Условия не принадлежат исходнику.')
+        raise ServiceError(404, 'task_not_found', 'The constraints do not belong to this source.')
     task = TaskSpec.model_validate(task_record.payload)
     for file in source.original_files:
         store.read(file.sha256)
@@ -92,7 +92,7 @@ def start_intent(db, store, settings, project_id, body):
         request_key=body.request_key, model=settings.model, provider_mode='test' if settings.test_mode else 'live', prompt_version=PROMPT_VERSION, payload=payload,
         price=price.model_dump(mode='json', by_alias=True), max_cost_micro_usd=body.max_cost_micro_usd,
         estimated_max_cost_micro_usd=upper, status='queued', cancel_requested=False,
-        events=[event('queued', 'Разбор сохранён в очереди. Передача минимального контекста подтверждена пользователем.')], created_at=now())
+        events=[event('queued', 'Interpretation queued. The user confirmed sending minimal context.')], created_at=now())
     db.add(record)
     db.commit()
     return detail(record, project)
@@ -116,7 +116,7 @@ def cancel_intent(db, project_id, draft_id):
     record = intent_or_404(db, project_id, draft_id, lock=True)
     if record.status in {'queued','running'} and not record.cancel_requested:
         record.cancel_requested = True
-        record.events = [*record.events, event('cancel_requested', 'Запрошена отмена разбора.')]
+        record.events = [*record.events, event('cancel_requested', 'Interpretation cancellation requested.')]
         if record.status == 'queued':
             record.status, record.finished_at = 'cancelled', now()
         db.commit()
@@ -128,16 +128,16 @@ def confirm_intent(db, store, project_id, draft_id, body: ConfirmIntent):
     record = intent_or_404(db, project_id, draft_id, lock=True)
     if (record.source_id, record.task_id, record.request_hash) != (
         body.expected_source_version_id, body.expected_task_id, body.request_hash):
-        raise ServiceError(409, 'intent_confirmation', 'Подтверждение относится к другим входам.')
+        raise ServiceError(409, 'intent_confirmation', 'The confirmation refers to different inputs.')
     if record.confirmed_task_id:
         return TaskSpec.model_validate(db.get(TaskRecord, record.confirmed_task_id).payload)
     if project.head_source_id != record.source_id or project.head_task_id != record.task_id:
-        raise ServiceError(409, 'intent_stale', 'Исходник или условия изменились после разбора. Требуется новый черновик.')
+        raise ServiceError(409, 'intent_stale', 'The source or constraints have changed since interpretation. Generate a new draft.')
     if record.status != 'ready' or record.proposal is None:
-        raise ServiceError(422, 'intent_not_ready', 'Подтверждение доступно только для готового черновика без вопросов.')
+        raise ServiceError(422, 'intent_not_ready', 'Only a ready draft with no outstanding questions can be confirmed.')
     proposal = IntentProposal.model_validate(record.proposal)
     if proposal.issues or set(body.acknowledged_rule_ids) != {r.id for r in proposal.review} or len(set(body.acknowledged_rule_ids)) != len(body.acknowledged_rule_ids):
-        raise ServiceError(422, 'intent_review', 'Проверьте и подтвердите все существенные условия.')
+        raise ServiceError(422, 'intent_review', 'Review and confirm all material constraints.')
     source = source_or_404(db, project_id, record.source_id)
     for file in source.original_files:
         store.read(file.sha256)

@@ -46,15 +46,15 @@ export class HttpWorkspaceClient implements ProjectClient {
     try { response = await this.fetcher(`/api/v1${path}`, { ...init, headers: { Accept: 'application/json', ...init.headers } }); }
     catch (error) {
       if (error instanceof Error && error.name === 'AbortError') throw error;
-      throw new WorkspaceApiError(0, 'unavailable', 'Сервис хранения недоступен. Повторите подключение.');
+      throw new WorkspaceApiError(0, 'unavailable', 'Storage service unavailable. Try reconnecting.');
     }
     if (!response.headers.get('Content-Type')?.includes('application/json')) {
-      throw new WorkspaceApiError(response.status, 'unavailable', 'Сервис хранения недоступен. Демонстрация доступна отдельно.');
+      throw new WorkspaceApiError(response.status, 'unavailable', 'Storage service unavailable. The demo is available separately.');
     }
     let body;
     try { body = await response.json(); }
-    catch { throw new WorkspaceApiError(response.status, 'invalid_response', 'Сервис вернул неполный ответ. Повторите запрос.'); }
-    if (!response.ok) throw new WorkspaceApiError(response.status, body.code ?? 'request', body.message ?? 'Не удалось выполнить запрос.');
+    catch { throw new WorkspaceApiError(response.status, 'invalid_response', 'The service returned an incomplete response. Try again.'); }
+    if (!response.ok) throw new WorkspaceApiError(response.status, body.code ?? 'request', body.message ?? 'Could not complete the request.');
     return body as T;
   }
 
@@ -134,19 +134,19 @@ export class HttpWorkspaceClient implements ProjectClient {
     try { response=await this.fetcher('/api/v1/projects/'+encodeURIComponent(receipt.projectId)+'/exports/'+encodeURIComponent(receipt.id)+'/download',{signal}); }
     catch (error) {
       if (error instanceof Error && error.name==='AbortError') throw error;
-      throw new WorkspaceApiError(0,'unavailable','Не удалось получить файл. Повторите скачивание.');
+      throw new WorkspaceApiError(0,'unavailable','Could not retrieve the file. Try downloading again.');
     }
     const type=response.headers.get('Content-Type')??'';
     if (!response.ok || type.includes('application/json')) {
       let detail: {code?:string;message?:string}={};
       if (type.includes('application/json')) { try { detail=await response.json(); } catch { /* use explicit fallback below */ } }
-      throw new WorkspaceApiError(response.status,detail.code??'export_download',detail.message??'Файл недоступен. Обновите историю экспорта.');
+      throw new WorkspaceApiError(response.status,detail.code??'export_download',detail.message??'File unavailable. Refresh the export history.');
     }
     const expected=receipt.format==='csv'?'application/zip':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    if (!type.includes(expected)) throw new WorkspaceApiError(response.status,'export_type','Сервер вернул другой тип файла.');
+    if (!type.includes(expected)) throw new WorkspaceApiError(response.status,'export_type','The server returned an unexpected file type.');
     const bytes=await response.arrayBuffer();
     const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),value=>value.toString(16).padStart(2,'0')).join('');
-    if (bytes.byteLength!==receipt.size || sha!==receipt.sha256) throw new WorkspaceApiError(409,'export_integrity','Размер или SHA-256 файла не совпал с квитанцией.');
+    if (bytes.byteLength!==receipt.size || sha!==receipt.sha256) throw new WorkspaceApiError(409,'export_integrity','The file size or SHA-256 does not match the receipt.');
     return new Blob([bytes],{type:expected});
   }
   async downloadTemplate(format: 'csv' | 'xlsx', signal?: AbortSignal) {
@@ -154,17 +154,17 @@ export class HttpWorkspaceClient implements ProjectClient {
     try { response=await this.fetcher(`/api/v1/templates?format=${format}`,{signal}); }
     catch (error) {
       if (error instanceof Error && error.name==='AbortError') throw error;
-      throw new WorkspaceApiError(0,'unavailable','Сервис хранения недоступен. Повторите подключение.');
+      throw new WorkspaceApiError(0,'unavailable','Storage service unavailable. Try reconnecting.');
     }
     const type=response.headers.get('Content-Type')??'';
     if (type.includes('application/json')) {
       let detail: {code?:string;message?:string}={};
       try { detail=await response.json(); } catch { /* use explicit fallback below */ }
-      throw new WorkspaceApiError(response.status,detail.code??'template',detail.message??'Не удалось получить шаблон. Повторите скачивание.');
+      throw new WorkspaceApiError(response.status,detail.code??'template',detail.message??'Could not retrieve the template. Try downloading again.');
     }
     const expected=format==='csv'?'application/zip':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     // Without the server a static host answers this path with index.html; that page must not be saved as a template.
-    if (!response.ok || !type.includes(expected)) throw new WorkspaceApiError(response.status,'unavailable','Сервис хранения недоступен. Демонстрация доступна отдельно.');
+    if (!response.ok || !type.includes(expected)) throw new WorkspaceApiError(response.status,'unavailable','Storage service unavailable. The demo is available separately.');
     return new Blob([await response.arrayBuffer()],{type:expected});
   }
 }

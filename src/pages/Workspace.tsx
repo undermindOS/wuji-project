@@ -20,9 +20,9 @@ import type { Absence, ExampleId, PaneId, WorkspaceData, WorkspaceSnapshot } fro
 import '../features/workspace/workspace.css';
 
 const panes: { id: PaneId; number: string; label: string }[] = [
-  { id: 'source', number: '01', label: 'Исходник' },
-  { id: 'task', number: '02', label: 'Задача' },
-  { id: 'scenario', number: '03', label: 'Результат' },
+  { id: 'source', number: '01', label: 'Source' },
+  { id: 'task', number: '02', label: 'Task' },
+  { id: 'scenario', number: '03', label: 'Result' },
 ];
 
 export default function Workspace() {
@@ -83,7 +83,7 @@ export default function Workspace() {
       setFixedDraft(data.task.fixedAssignments ?? {});
       setObjectiveDraft(data.task.objective ?? 'compare');
     };
-    void load().catch(value => { if (!controller.signal.aborted) setError(value instanceof Error ? value.message : 'Не удалось открыть данные.'); });
+    void load().catch(value => { if (!controller.signal.aborted) setError(value instanceof Error ? value.message : 'Could not open the data.'); });
     return () => { controller.abort(); saveController.current?.abort(); generation.current += 1; };
   }, [exampleId, reload, projectId, sourceParam, taskParam]);
 
@@ -125,7 +125,7 @@ export default function Workspace() {
     try {
       const task = await workspaceClient.saveTask(snapshot.project.id, { expectedSourceVersionId: snapshot.source.id, expectedTaskId: snapshot.task.id, request: draft, absence: absenceDraft, fixedAssignments: fixedDraft, objective: objectiveDraft }, controller.signal);
       if (!controller.signal.aborted && generation.current === current) { openProject(snapshot.project.id, snapshot.source.id, task.id); setActivePane('task'); }
-    } catch (value) { if (!controller.signal.aborted && generation.current === current) setSaveError(value instanceof Error ? value.message : 'Не удалось сохранить условия.'); }
+    } catch (value) { if (!controller.signal.aborted && generation.current === current) setSaveError(value instanceof Error ? value.message : 'Could not save the constraints.'); }
     finally { if (generation.current === current) setSaving(false); }
   };
   const selectShift = (id: string) => {
@@ -148,27 +148,27 @@ export default function Workspace() {
   };
   const period = example ? (() => {
     const dates = example.source.shifts.map(shift => new Date(shift.startsAt)).sort((a, b) => a.getTime() - b.getTime());
-    const formatter = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', timeZone: example.source.timezone });
-    const year = new Intl.DateTimeFormat('ru-RU', { year: 'numeric', timeZone: example.source.timezone });
+    const formatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', timeZone: example.source.timezone });
+    const year = new Intl.DateTimeFormat('en-GB', { year: 'numeric', timeZone: example.source.timezone });
     return dates.length ? `${formatter.format(dates[0])}${year.format(dates[0]) !== year.format(dates[dates.length - 1]) ? ` ${year.format(dates[0])}` : ''} — ${formatter.format(dates[dates.length - 1])} ${year.format(dates[dates.length - 1])}` : '—';
   })() : '—';
 
   return (
     <div className="workspace">
       <ScanlineOverlay />
-      <a className="ws-skip" href="#workspace-task" onClick={() => setActivePane('task')}>К задаче</a>
+      <a className="ws-skip" href="#workspace-task" onClick={() => setActivePane('task')}>Skip to task</a>
       <header className="ws-header">
-        <Link to="/" aria-label="WUJI — на главную" className="ws-brand"><BrandMark /></Link>
+        <Link to="/" aria-label="WUJI — home" className="ws-brand"><BrandMark /></Link>
         <span className="ws-header-label">DECISION_WORKSPACE <span aria-hidden="true">/</span> 001</span>
-        <div className="ws-header-actions"><span className="ws-demo-badge">{projectId ? 'ПРОЕКТ' : 'ДЕМО'}</span><Link to="/" className="ws-home-link">НА ГЛАВНУЮ ↗</Link></div>
+        <div className="ws-header-actions"><span className="ws-demo-badge">{projectId ? 'PROJECT' : 'DEMO'}</span><Link to="/" className="ws-home-link">HOME ↗</Link></div>
       </header>
       <div className="ws-project-heading">
-        <div><p className="ws-kicker"><span className="ws-green">WU</span><span className="ws-red">JI</span> // {example?.source.teamName ?? 'РАБОЧЕЕ ПРОСТРАНСТВО'}</p><h1 className="font-display">REWRITE THE WEEK<span className="ws-orange">_</span></h1><p className="ws-project-subtitle">Исходник. Условия. Последствия. Всё перед глазами.</p></div>
-        <div className="ws-project-meta"><div><span>НЕДЕЛЯ</span><strong>{period}</strong></div><div className="ws-timezone-meta"><span>ЧАСОВОЙ ПОЯС</span><strong>{example?.source.timezone ?? '—'}</strong></div><button type="button" className="ws-reset" onClick={reset}>{projectId ? 'ДЕМО ↺' : 'ЗАНОВО ↺'}</button></div>
+        <div><p className="ws-kicker"><span className="ws-green">WU</span><span className="ws-red">JI</span> // {example?.source.teamName ?? 'WORKSPACE'}</p><h1 className="font-display">REWRITE THE WEEK<span className="ws-orange">_</span></h1><p className="ws-project-subtitle">Source. Constraints. Consequences. All in view.</p></div>
+        <div className="ws-project-meta"><div><span>WEEK</span><strong>{period}</strong></div><div className="ws-timezone-meta"><span>TIME ZONE</span><strong>{example?.source.timezone ?? '—'}</strong></div><button type="button" className="ws-reset" onClick={reset}>{projectId ? 'DEMO ↺' : 'RESET ↺'}</button></div>
       </div>
-      <nav className="ws-mobile-tabs" aria-label="Области рабочего пространства">{panes.map(pane => <button type="button" key={pane.id} onClick={() => setActivePane(pane.id)} aria-pressed={activePane === pane.id} aria-controls={`workspace-${pane.id}`}><span>{pane.number}</span> {pane.label}</button>)}</nav>
-      {error ? <main className="ws-loading" role="alert"><h2>Не удалось открыть {projectId ? 'проект' : 'пример'}</h2><p className="ws-note">{error}</p><button type="button" className="ws-outline" onClick={() => setReload(value => value + 1)}>Повторить</button><button type="button" className="ws-text-button" onClick={reset}>Открыть демо</button></main> : !example ? <main className="ws-loading" role="status">Открываем {projectId ? 'сохранённые данные' : 'пример'}…</main> : (
-        <main className="ws-panels" style={{ gridTemplateColumns: `${widths[0]}fr 9px ${widths[1]}fr 9px ${widths[2]}fr` }} aria-label="Рабочее пространство сценария">
+      <nav className="ws-mobile-tabs" aria-label="Workspace panels">{panes.map(pane => <button type="button" key={pane.id} onClick={() => setActivePane(pane.id)} aria-pressed={activePane === pane.id} aria-controls={`workspace-${pane.id}`}><span>{pane.number}</span> {pane.label}</button>)}</nav>
+      {error ? <main className="ws-loading" role="alert"><h2>Could not open {projectId ? 'project' : 'example'}</h2><p className="ws-note">{error}</p><button type="button" className="ws-outline" onClick={() => setReload(value => value + 1)}>Retry</button><button type="button" className="ws-text-button" onClick={reset}>Open demo</button></main> : !example ? <main className="ws-loading" role="status">Opening {projectId ? 'saved data' : 'example'}…</main> : (
+        <main className="ws-panels" style={{ gridTemplateColumns: `${widths[0]}fr 9px ${widths[1]}fr 9px ${widths[2]}fr` }} aria-label="Scenario workspace">
           <section id="workspace-source" className="ws-pane ws-source-pane" aria-labelledby="source-heading" data-active={activePane === 'source'}>
             <SourcePane key={example.id} source={example.source} task={example.task} selectedShiftId={selectedShiftId} selectionSequence={selectionSequence} onSelect={selectShift}><SourceControls source={example.source} snapshot={snapshot} onOpenProject={openProject} /></SourcePane>
           </section>
@@ -182,7 +182,7 @@ export default function Workspace() {
           </section>
         </main>
       )}
-      <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {projectId ? 'ИСХОДНИК В ПРОЕКТЕ' : 'СИНТЕТИЧЕСКИЕ ДАННЫЕ'} <span className="ws-footer-divider">/</span> <span className="ws-ai-status">{!projectId ? 'ГОТОВЫЕ ПРИМЕРЫ' : intent.configuration?.providerMode === 'test' || example?.task.interpretation?.providerMode === 'test' ? 'ИИ: КОНТРОЛЬНЫЙ ОТВЕТ' : intent.job?.status === 'failed' ? 'OPENAI / ОШИБКА РАЗБОРА' : example?.task.interpretation ? 'УСЛОВИЯ ИИ ПОДТВЕРЖДЕНЫ' : intent.configuration?.configured ? 'OPENAI / НАСТРОЕН' : 'ИИ НЕ НАСТРОЕН'}</span></span><span>НИЧЕГО НЕ ОПУБЛИКОВАНО <span aria-hidden="true">↗</span></span></footer>
+      <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {projectId ? 'PROJECT SOURCE' : 'SYNTHETIC DATA'} <span className="ws-footer-divider">/</span> <span className="ws-ai-status">{!projectId ? 'PREPARED EXAMPLES' : intent.configuration?.providerMode === 'test' || example?.task.interpretation?.providerMode === 'test' ? 'AI: TEST RESPONSE' : intent.job?.status === 'failed' ? 'OPENAI / INTERPRETATION FAILED' : example?.task.interpretation ? 'AI CONSTRAINTS CONFIRMED' : intent.configuration?.configured ? 'OPENAI / CONFIGURED' : 'AI NOT CONFIGURED'}</span></span><span>NOTHING PUBLISHED <span aria-hidden="true">↗</span></span></footer>
     </div>
   );
 }

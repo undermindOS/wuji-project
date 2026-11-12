@@ -127,7 +127,7 @@ def test_named_conflict_survives_storage_and_reaches_the_client(client, settings
     assert any(e['code'] == 'diagnosis' for e in run['events']) and len(run['result']['attempts']) == 1
     issue, = run['result']['issues']
     assert issue['code'] == 'fixed_absence' and issue['shiftIds'] == ['s05'] and issue['employeeIds'] == ['anna']
-    assert 'Анна Волкова' in issue['message'] and issue['sourceRefs'] == []
+    assert 'Anna Volkova' in issue['message'] and issue['sourceRefs'] == []
     assert issue['conditions'] == [
         {'kind': 'fixed_assignment', 'shiftId': 's05', 'employeeId': 'anna', 'role': None, 'removalCheck': 'solution'},
         {'kind': 'absence', 'shiftId': 's05', 'employeeId': 'anna', 'role': None, 'removalCheck': 'solution'}]

@@ -19,7 +19,7 @@ def project(client, name='North Studio'):
 
 
 def preview(client, project_id, files, expected=None):
-    data = {'team_name': 'North Studio', 'timezone': 'Europe/Moscow', 'currency': 'RUB'}
+    data = {'team_name': 'North Studio', 'timezone': 'America/New_York', 'currency': 'USD'}
     if expected:
         data['expected_source_version_id'] = expected
     response = client.post(f'/api/v1/projects/{project_id}/imports', data=data, files=files)
@@ -126,7 +126,7 @@ def test_task_versions_are_saved_without_interpreting_text_and_stale_save_confli
     pid, _, snapshot = imported(client, files)
     source, task = snapshot['source'], snapshot['task']
     payload = {'expectedSourceVersionId': source['id'], 'expectedTaskId': task['id'],
-        'request': 'Анна отсутствует. Это текст задачи, а не команда серверу.', 'absence': {'employeeId': 'anna', 'shiftIds': ['s05']}}
+        'request': 'Анна отсутствует. Это текст задачи, а не команда серверу.', 'absence': {'employeeId': 'emily', 'shiftIds': ['s05']}}
     response = client.post(f'/api/v1/projects/{pid}/tasks', json=payload)
     assert response.status_code == 201, response.text
     assert response.json()['version'] == 2
@@ -140,7 +140,7 @@ def test_task_versions_are_saved_without_interpreting_text_and_stale_save_confli
 
 @pytest.mark.parametrize('format', ['csv', 'xlsx'])
 def test_export_reimport_preserves_values_types_ids_and_unknown_rates(client, files, format):
-    files['employees'] = ('employees.csv', files['employees'][1].replace(b'32000,960', b',960'), 'text/csv')
+    files['employees'] = ('employees.csv', files['employees'][1].replace(b'3200,960', b',960'), 'text/csv')
     pid, _, snapshot = imported(client, files)
     url = f'/api/v1/projects/{pid}/sources/{snapshot["source"]["id"]}/export'
     exported = client.get(url, params={'format': format})

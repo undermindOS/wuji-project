@@ -54,6 +54,10 @@
 
 ### Изменено
 
+- Localize all demo people and employee IDs for a US audience, use USD example
+  rates of $24–$32/hour, America/New_York shift timestamps and US date, time
+  and currency formatting. Regenerate the matching import templates and examples.
+
 - Translate the complete website interface, demo data, server messages and export
   content into English. Use English date and number formatting, ask AI clarification
   questions in English, and support English month names and scheduling priorities.

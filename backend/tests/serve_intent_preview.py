@@ -29,7 +29,7 @@ from app.main import create_app
 from app.schemas import QuotedIntent, QuotedOperation
 from app.worker import work_once
 
-REQUEST = 'Anna will be absent on Wednesday, November 4. Compare options.'
+REQUEST = 'Emily will be absent on Wednesday, November 4. Compare options.'
 
 
 async def controlled(payload, price, settings, cancelled):
@@ -43,9 +43,9 @@ async def controlled(payload, price, settings, cancelled):
         return ProviderResult(failure='cancelled')
     await asyncio.sleep(.15)
     variants = {
-        REQUEST: ('Anna', 'Wednesday, November 4', 'Anna will be absent on Wednesday, November 4.', True),
+        REQUEST: ('Emily', 'Wednesday, November 4', 'Emily will be absent on Wednesday, November 4.', True),
         'Peter will be absent on Wednesday, November 4.': ('Peter', 'Wednesday, November 4', 'Peter will be absent on Wednesday, November 4.', False),
-        'Anna will be absent tomorrow.': ('Anna', 'tomorrow', 'Anna will be absent tomorrow.', False),
+        'Emily will be absent tomorrow.': ('Emily', 'tomorrow', 'Emily will be absent tomorrow.', False),
     }
     if request not in variants:
         return ProviderResult(parsed=QuotedIntent(operations=[],questions=['The test provider only recognizes examples listed in the test scenario.'],unsupported=[]),model='fixture/quotations-v1')
@@ -78,7 +78,7 @@ def main():
             ('schedule','team_week_02-08_nov.csv'),('employees','employees.csv'),('availability','availability.csv')]}
         with TestClient(app) as client:
             project = client.post('/api/v1/projects',json={'name':'Test example · North'}).json()['id']
-            preview = client.post('/api/v1/projects/'+project+'/imports',data={'team_name':'Test team','timezone':'Europe/Moscow','currency':'RUB'},files=files).json()
+            preview = client.post('/api/v1/projects/'+project+'/imports',data={'team_name':'Test team','timezone':'America/New_York','currency':'USD'},files=files).json()
             assert preview['canConfirm']
             assert client.post('/api/v1/projects/'+project+'/imports/'+preview['id']+'/confirm',json={'expectedSourceVersionId':None}).status_code==200
         def work():

@@ -30,13 +30,13 @@ test('run adoption requires the exact project source and task version', () => {
 
 test('absence applies to the entire interval including overlapping shifts', () => {
   const { source, task } = createExample('absence');
-  const anna = source.employees.find(e => e.id === 'anna')!;
-  assert.equal(availabilityFor(anna, 's06', task, source), 'unavailable');
-  assert.equal(availabilityFor(anna, 's09', task, source), 'available');
+  const emily = source.employees.find(e => e.id === 'emily')!;
+  assert.equal(availabilityFor(emily, 's06', task, source), 'unavailable');
+  assert.equal(availabilityFor(emily, 's09', task, source), 'available');
 });
 
 test('client display also detects a violated explicit fixed assignment', () => {
   const { source, task, scenarios } = createExample('absence');
-  const checks = checkSchedule(source, { ...task, fixedAssignments: { s05: 'denis' } }, scenarios[0]);
+  const checks = checkSchedule(source, { ...task, fixedAssignments: { s05: 'daniel' } }, scenarios[0]);
   assert.equal(checks.find(check => check.id === 'pinned')?.status, 'fail');
 });

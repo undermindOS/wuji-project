@@ -1,8 +1,8 @@
 {
   "exampleId": "unchanged",
   "sourceVersionId": "demo-source-unchanged-v1",
-  "timezone": "Europe/Moscow",
-  "currency": "RUB",
+  "timezone": "America/New_York",
+  "currency": "USD",
   "task": {
     "id": "demo-task-unchanged-v1",
     "sourceVersionId": "demo-source-unchanged-v1",
@@ -22,7 +22,7 @@
       {
         "id": "hours",
         "label": "Individual hour limits",
-        "detail": "Denis has an 8-hour weekly limit; other limits come from employee profiles."
+        "detail": "Daniel has an 8-hour weekly limit; other limits come from employee profiles."
       },
       {
         "id": "coverage",

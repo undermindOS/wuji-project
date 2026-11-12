@@ -24,7 +24,7 @@ def prepared(client,settings,files):
     pid,_,snapshot=imported(client,files)
     saved=client.post('/api/v1/projects/'+pid+'/tasks',json={'expectedSourceVersionId':snapshot['source']['id'],
         'expectedTaskId':snapshot['task']['id'],'request':'Анна отсутствует в среду с 09:00 до 17:00.',
-        'absence':{'employeeId':'anna','shiftIds':['s05']},'fixedAssignments':{'s04':'daria'}})
+        'absence':{'employeeId':'emily','shiftIds':['s05']},'fixedAssignments':{'s04':'sarah'}})
     assert saved.status_code==201,saved.text
     snapshot=client.get('/api/v1/projects/'+pid+'/workspace').json()
     run=start(client,pid,snapshot).json()
@@ -90,7 +90,7 @@ def test_approval_requires_exact_checked_candidate_and_repeat_does_not_move_sele
 
 def test_manual_revision_loses_validation_and_fixed_correction_requires_a_new_version(client,settings,files):
     pid,snapshot,run,base=prepared(client,settings,files)
-    assignments={**base['scenario']['assignments'],'s05':'denis'}
+    assignments={**base['scenario']['assignments'],'s05':'daniel'}
     key=str(uuid4())
     result=revision(client,pid,snapshot,run,base,assignments,requestKey=key)
     assert result.status_code==201,result.text
@@ -102,12 +102,12 @@ def test_manual_revision_loses_validation_and_fixed_correction_requires_a_new_ve
     assert checked['validation']['status']=='fail' and any(c['id']=='hours' and c['status']=='fail' for c in checked['validation']['checks'])
     assert validate(client,pid,bad).json()==checked
     assert approve(client,pid,snapshot,run,checked).status_code==422
-    good=revision(client,pid,snapshot,run,checked,{**assignments,'s08':'oleg'}).json()
+    good=revision(client,pid,snapshot,run,checked,{**assignments,'s08':'christopher'}).json()
     assert good['revisionVersion']==bad['revisionVersion']+1 and good['parentRevisionId']==bad['id']
     assert good['validation'] is None
     good=validate(client,pid,good).json()
     assert good['validation']['status']=='pass' and good['searchStatus'] is None
-    assert good['metrics']['costMinor']==3072000 and good['metrics']['totalMinutes']==6720
+    assert good['metrics']['costMinor']==307200 and good['metrics']['totalMinutes']==6720
     accepted=approve(client,pid,snapshot,run,good)
     assert accepted.status_code==201,accepted.text
     assert accepted.json()['origin']=='manual'
@@ -120,7 +120,7 @@ def test_manual_revision_does_not_accept_broken_ids_or_an_empty_change(client,se
     pid,snapshot,run,base=prepared(client,settings,files)
     values=dict(base['scenario']['assignments'])
     if change=='missing': values.pop('s01')
-    elif change=='extra': values['other']='anna'
+    elif change=='extra': values['other']='emily'
     elif change=='employee': values['s05']='nobody'
     assert revision(client,pid,snapshot,run,base,values).status_code==422
 
@@ -138,7 +138,7 @@ def test_new_inputs_block_approval_revision_and_new_export_but_retain_prepared_a
         draft=preview(client,pid,files,snapshot['source']['id'])
         assert confirm(client,pid,draft,snapshot['source']['id']).status_code==200
     assert approve(client,pid,snapshot,run,candidate).status_code==409
-    assert revision(client,pid,snapshot,run,candidate,{**candidate['scenario']['assignments'],'s05':'denis'}).status_code==409
+    assert revision(client,pid,snapshot,run,candidate,{**candidate['scenario']['assignments'],'s05':'daniel'}).status_code==409
     assert export(client,pid,approval,'xlsx').status_code==409
     assert export(client,pid,approval).json()['id']==receipt['id']
     assert not client.post('/api/v1/projects/'+pid+'/approvals',json=body).json()['isCurrent']
@@ -188,8 +188,8 @@ def test_approved_export_reimports_exact_assignments_absence_and_additional_pins
     source=imported_result['preview']
     assert {s['id']:s['employeeId'] for s in source['shifts']}==candidate['scenario']['assignments']
     assert next(s for s in source['shifts'] if s['id']=='s04')['pinned']
-    anna=next(e for e in source['employees'] if e['id']=='anna')
-    assert anna['availability']['s05']==anna['availability']['s06']=='unavailable'
+    emily=next(e for e in source['employees'] if e['id']=='emily')
+    assert emily['availability']['s05']==emily['availability']['s06']=='unavailable'
     with TestClient(create_app(settings)) as reopened:
         assert reopened.get(url).content==downloaded.content
 
@@ -197,7 +197,7 @@ def test_approved_export_reimports_exact_assignments_absence_and_additional_pins
 def test_unknown_cost_needs_separate_ack_and_is_not_exported_as_zero(client,settings,files):
     rows=list(csv.reader(io.StringIO(files['employees'][1].decode())))
     for row in rows[1:]:
-        if row[0]=='sofia': row[3]=''
+        if row[0]=='sophia': row[3]=''
     stream=io.StringIO();csv.writer(stream).writerows(rows)
     files['employees']=('employees.csv',stream.getvalue().encode(),'text/csv')
     pid,snapshot,run,candidate=prepared(client,settings,files)
@@ -213,7 +213,7 @@ def test_unknown_cost_needs_separate_ack_and_is_not_exported_as_zero(client,sett
 
 def test_cross_project_references_and_immutable_approval_history(client,settings,files):
     pid,snapshot,run,candidate=prepared(client,settings,files)
-    manual=revision(client,pid,snapshot,run,candidate,{**candidate['scenario']['assignments'],'s05':'denis'}).json()
+    manual=revision(client,pid,snapshot,run,candidate,{**candidate['scenario']['assignments'],'s05':'daniel'}).json()
     validate(client,pid,manual)
     approval=approve(client,pid,snapshot,run,candidate).json()
     receipt=export(client,pid,approval).json()
@@ -264,7 +264,7 @@ def test_edited_result_workbook_imports_as_new_data_without_inheriting_approval(
     receipt=export(client,pid,approval,'xlsx').json()
     raw=client.get('/api/v1/projects/'+pid+'/exports/'+receipt['id']+'/download').content
     book=load_workbook(io.BytesIO(raw))
-    book['Employees'].cell(2,4,31000)
+    book['Employees'].cell(2,4,3100)
     output=io.BytesIO();book.save(output);book.close()
     other=project(client,'Изменённый файл')
     draft=preview(client,other,{'workbook':('changed.xlsx',output.getvalue(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
@@ -273,13 +273,13 @@ def test_edited_result_workbook_imports_as_new_data_without_inheriting_approval(
     assert confirm(client,other,draft).status_code==200
     assert client.get('/api/v1/projects/'+other+'/approvals').json()==[]
     loaded=client.get('/api/v1/projects/'+other+'/workspace').json()
-    assert next(e for e in loaded['source']['employees'] if e['id']=='anna')['ratePerHourMinor']==31000
+    assert next(e for e in loaded['source']['employees'] if e['id']=='emily')['ratePerHourMinor']==3100
 
 
 @pytest.mark.parametrize('change',['task','source'])
 def test_unchecked_revision_cannot_validate_after_inputs_changed(client,settings,files,change):
     pid,snapshot,run,candidate=prepared(client,settings,files)
-    manual=revision(client,pid,snapshot,run,candidate,{**candidate['scenario']['assignments'],'s05':'denis'}).json()
+    manual=revision(client,pid,snapshot,run,candidate,{**candidate['scenario']['assignments'],'s05':'daniel'}).json()
     if change=='task':
         assert client.post('/api/v1/projects/'+pid+'/tasks',json={'expectedSourceVersionId':snapshot['source']['id'],
             'expectedTaskId':snapshot['task']['id'],'request':'Другие условия'}).status_code==201
@@ -294,11 +294,11 @@ def test_manual_assignment_never_bypasses_hard_or_unknown_conditions(client,sett
     if rule=='unknown':
         rows=list(csv.reader(io.StringIO(files['availability'][1].decode())))
         for row in rows[1:]:
-            if row[:2]==['sofia','s05']:row[2]='unknown'
+            if row[:2]==['sophia','s05']:row[2]='unknown'
         stream=io.StringIO();csv.writer(stream).writerows(rows)
         files['availability']=('availability.csv',stream.getvalue().encode(),'text/csv')
     pid,snapshot,run,candidate=prepared(client,settings,files)
-    sid,eid={'absence':('s05','anna'),'pinned':('s02','daria'),'roles':('s06','sofia'),'unknown':('s05','sofia')}[rule]
+    sid,eid={'absence':('s05','emily'),'pinned':('s02','sarah'),'roles':('s06','sophia'),'unknown':('s05','sophia')}[rule]
     manual=revision(client,pid,snapshot,run,candidate,{**candidate['scenario']['assignments'],sid:eid}).json()
     checked=validate(client,pid,manual).json()
     check_id={'absence':'availability','pinned':'pinned','roles':'roles','unknown':'availability'}[rule]

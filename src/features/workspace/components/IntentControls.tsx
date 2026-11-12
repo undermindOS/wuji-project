@@ -45,7 +45,7 @@ function Preview({ draft, state, snapshot, request, manualEdited, onRequestChang
     </div>
     <details className="ws-journal"><summary>Interpretation log · {draft.events.length}</summary>
       <p className="ws-note">OpenAI · {draft.responseModel ?? draft.model}<br />{draft.promptVersion} · source {draft.sourceHash.slice(0, 12)}…</p>
-      <ol>{draft.events.map((event, index) => <li key={index}>{new Date(event.at).toLocaleTimeString('en-GB')} · {event.message}</li>)}</ol>
+      <ol>{draft.events.map((event, index) => <li key={index}>{new Date(event.at).toLocaleTimeString('en-US')} · {event.message}</li>)}</ol>
     </details>
   </div>;
 }

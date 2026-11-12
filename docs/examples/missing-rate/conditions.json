@@ -1,14 +1,14 @@
 {
   "exampleId": "missing-rate",
   "sourceVersionId": "demo-source-missing-rate-v1",
-  "timezone": "Europe/Moscow",
-  "currency": "RUB",
+  "timezone": "America/New_York",
+  "currency": "USD",
   "task": {
     "id": "demo-task-missing-rate-v1",
     "sourceVersionId": "demo-source-missing-rate-v1",
-    "request": "Anna will be absent on Wednesday, November 4. Cover her shift while preserving pinned assignments and hour limits. Show an option with fewer reassignments and an option with lower costs.",
+    "request": "Emily will be absent on Wednesday, November 4. Cover her shift while preserving pinned assignments and hour limits. Show an option with fewer reassignments and an option with lower costs.",
     "absence": {
-      "employeeId": "anna",
+      "employeeId": "emily",
       "shiftIds": [
         "s05"
       ]
@@ -27,7 +27,7 @@
       {
         "id": "hours",
         "label": "Individual hour limits",
-        "detail": "Denis has an 8-hour weekly limit; other limits come from employee profiles."
+        "detail": "Daniel has an 8-hour weekly limit; other limits come from employee profiles."
       },
       {
         "id": "coverage",

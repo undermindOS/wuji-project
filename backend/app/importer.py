@@ -45,10 +45,10 @@ def parse_import(files: list[tuple[OriginalFile, bytes]], team_name: str, timezo
     try:
         zone = ZoneInfo(timezone)
     except (ZoneInfoNotFoundError, ValueError):
-        issue('timezone', 'Specify a valid IANA time zone, such as Europe/Moscow.')
+        issue('timezone', 'Specify a valid IANA time zone, such as America/New_York.')
         zone = None
     if currency not in CURRENCIES:
-        issue('currency', 'Supported currencies: RUB, USD, EUR, UYU, ARS, BRL, GBP; one currency per project.')
+        issue('currency', 'Supported currencies: USD, RUB, EUR, UYU, ARS, BRL, GBP; one currency per project.')
     if not team_name or len(team_name) > 120 or team_name != team_name.strip():
         issue('team_name', 'A team name of up to 120 characters without leading or trailing spaces is required.')
     tables: dict[str, Table] = {}

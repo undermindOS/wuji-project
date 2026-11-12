@@ -107,7 +107,7 @@ def create_app(settings: Settings | None = None, ai_settings: AiSettings | None 
         for kind, name in [('schedule', 'team_week_02-08_nov.csv'), ('employees', 'employees.csv'), ('availability', 'availability.csv')]:
             raw = (directory / name).read_bytes()
             files.append((OriginalFile(id=str(uuid4()), filename=name, kind=kind, sha256=hashlib.sha256(raw).hexdigest(), size=len(raw)), raw))
-        parsed = parse_import(files, 'North Studio', 'Europe/Moscow', 'RUB')
+        parsed = parse_import(files, 'North Studio', 'America/New_York', 'USD')
         source = SourceVersion(**parsed.source.model_dump(), id='template', version=0)
         content, media, _ = export_source(source, format)
         return Response(content, media_type=media, headers={'Content-Disposition': f'attachment; filename="wuji-template.{"zip" if format == "csv" else "xlsx"}"'})

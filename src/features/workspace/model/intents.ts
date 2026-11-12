@@ -11,9 +11,9 @@ export const canConfirmIntent = (draft: IntentDraft, snapshot: WorkspaceSnapshot
   draft.proposal.review.every(rule => acknowledged.includes(rule.id));
 export const mergeIntentUpdate = (previous: IntentDraft | null, next: IntentDraft) =>
   previous?.id === next.id && !isActiveIntent(previous) && isActiveIntent(next) ? previous : next;
-export const microUsd = (amount: number | null) => amount == null ? 'Неизвестно' :
-  new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(amount / 1_000_000);
+export const microUsd = (amount: number | null) => amount == null ? 'Unknown' :
+  new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(amount / 1_000_000);
 export const intentStatusLabel: Record<IntentDraft['status'], string> = {
-  queued: 'В очереди', running: 'Разбираем запрос', ready: 'Нужно подтверждение', needs_clarification: 'Нужно уточнение',
-  failed: 'Разбор не выполнен', cancelled: 'Отменён', confirmed: 'Условия подтверждены',
+  queued: 'Queued', running: 'Interpreting request', ready: 'Confirmation required', needs_clarification: 'Clarification needed',
+  failed: 'Interpretation failed', cancelled: 'Cancelled', confirmed: 'Constraints confirmed',
 };

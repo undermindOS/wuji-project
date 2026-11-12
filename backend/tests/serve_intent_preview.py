@@ -29,30 +29,30 @@ from app.main import create_app
 from app.schemas import QuotedIntent, QuotedOperation
 from app.worker import work_once
 
-REQUEST = 'Анна не выйдет в среду, 4 ноября. Сравни варианты.'
+REQUEST = 'Anna will be absent on Wednesday, November 4. Compare options.'
 
 
 async def controlled(payload, price, settings, cancelled):
     assert settings.test_mode
     request = json.loads(payload['input'])['request_text']
-    if request == 'Ошибка провайдера':
+    if request == 'Provider error':
         return ProviderResult(failure='provider_auth')
-    if request == 'Медленный контрольный запрос':
+    if request == 'Slow test request':
         while not cancelled():
             await asyncio.sleep(.05)
         return ProviderResult(failure='cancelled')
     await asyncio.sleep(.15)
     variants = {
-        REQUEST: ('Анна', 'среду, 4 ноября', 'Анна не выйдет в среду, 4 ноября.', True),
-        'Пётр не выйдет в среду, 4 ноября.': ('Пётр', 'среду, 4 ноября', 'Пётр не выйдет в среду, 4 ноября.', False),
-        'Анна не выйдет завтра.': ('Анна', 'завтра', 'Анна не выйдет завтра.', False),
+        REQUEST: ('Anna', 'Wednesday, November 4', 'Anna will be absent on Wednesday, November 4.', True),
+        'Peter will be absent on Wednesday, November 4.': ('Peter', 'Wednesday, November 4', 'Peter will be absent on Wednesday, November 4.', False),
+        'Anna will be absent tomorrow.': ('Anna', 'tomorrow', 'Anna will be absent tomorrow.', False),
     }
     if request not in variants:
-        return ProviderResult(parsed=QuotedIntent(operations=[],questions=['Контрольный провайдер распознаёт только перечисленные в тестовом сценарии примеры.'],unsupported=[]),model='fixture/quotations-v1')
+        return ProviderResult(parsed=QuotedIntent(operations=[],questions=['The test provider only recognizes examples listed in the test scenario.'],unsupported=[]),model='fixture/quotations-v1')
     employee, scope, quote, compare = variants[request]
     operations = [QuotedOperation(kind='set_absence', quote=quote, employee_quote=employee, scope_quote=scope, objective=None)]
     if compare:
-        operations.append(QuotedOperation(kind='set_objective',quote='Сравни варианты.',employee_quote=None,scope_quote=None,objective='compare'))
+        operations.append(QuotedOperation(kind='set_objective',quote='Compare options.',employee_quote=None,scope_quote=None,objective='compare'))
     return ProviderResult(parsed=QuotedIntent(operations=operations,questions=[],unsupported=[]),model='fixture/quotations-v1',response_id='offline-preview')
 
 
@@ -77,8 +77,8 @@ def main():
         files = {kind:(filename,(base/filename).read_bytes(),'text/csv') for kind,filename in [
             ('schedule','team_week_02-08_nov.csv'),('employees','employees.csv'),('availability','availability.csv')]}
         with TestClient(app) as client:
-            project = client.post('/api/v1/projects',json={'name':'Контрольный пример · Север'}).json()['id']
-            preview = client.post('/api/v1/projects/'+project+'/imports',data={'team_name':'Контрольная команда','timezone':'Europe/Moscow','currency':'RUB'},files=files).json()
+            project = client.post('/api/v1/projects',json={'name':'Test example · North'}).json()['id']
+            preview = client.post('/api/v1/projects/'+project+'/imports',data={'team_name':'Test team','timezone':'Europe/Moscow','currency':'RUB'},files=files).json()
             assert preview['canConfirm']
             assert client.post('/api/v1/projects/'+project+'/imports/'+preview['id']+'/confirm',json={'expectedSourceVersionId':None}).status_code==200
         def work():

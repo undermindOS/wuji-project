@@ -43,7 +43,7 @@ export function useProjectRuns(snapshot: WorkspaceSnapshot | null) {
         apply(next);
         if (current() && isActiveRun(next)) timer = setTimeout(() => void poll(id), 700);
       } catch (value) {
-        if (current()) setError(value instanceof Error ? value.message : 'Не удалось обновить расчёт.');
+        if (current()) setError(value instanceof Error ? value.message : 'Could not refresh the calculation.');
       }
     };
     void workspaceClient.listRuns(project, source, task, controller.signal).then(async list => {
@@ -51,7 +51,7 @@ export function useProjectRuns(snapshot: WorkspaceSnapshot | null) {
       setRuns(list); pendingKey.current = null;
       const selected = list.find(item => item.id === selectedId) ?? list.find(isActiveRun) ?? list[0];
       if (selected) await poll(selected.id);
-    }).catch(value => { if (current()) setError(value instanceof Error ? value.message : 'Не удалось открыть запуски.'); })
+    }).catch(value => { if (current()) setError(value instanceof Error ? value.message : 'Could not load runs.'); })
       .finally(() => { if (current()) setLoading(false); });
     return () => { generation.current++; controller.abort(); action.current?.abort(); clearTimeout(timer); };
   }, [project, source, task, selectedId, revision]);
@@ -65,7 +65,7 @@ export function useProjectRuns(snapshot: WorkspaceSnapshot | null) {
       const value = await operation(controller.signal);
       if (generation.current === ticket && !controller.signal.aborted) accept(value);
     } catch (value) {
-      if (generation.current === ticket && !controller.signal.aborted) setError(value instanceof Error ? value.message : 'Не удалось выполнить операцию.');
+      if (generation.current === ticket && !controller.signal.aborted) setError(value instanceof Error ? value.message : 'Could not complete the operation.');
     } finally { if (generation.current === ticket) setBusy(false); }
   };
   const start = () => {

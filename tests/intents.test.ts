@@ -48,6 +48,6 @@ test('a late progress poll cannot overwrite a ready or confirmed interpretation'
   assert.equal(mergeIntentUpdate(draft, next), next);
 });
 test('analysis money distinguishes missing usage and sub-cent estimates', () => {
-  assert.equal(microUsd(null), 'Неизвестно');
+  assert.equal(microUsd(null), 'Unknown');
   assert.notEqual(microUsd(930), microUsd(0));
 });

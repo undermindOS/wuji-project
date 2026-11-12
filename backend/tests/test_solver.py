@@ -111,9 +111,9 @@ def on_separate_days(source):
 
 @pytest.mark.parametrize('pin,pin_kind', [('source', 'source_pin'), ('condition', 'fixed_assignment')])
 @pytest.mark.parametrize('block,blocker,words', [
-    ({'roles': ['other']}, ('role', None, 'bob', 'worker'), 'нет роли «worker» у сотрудника Bob'),
-    ({'availability': {'s1': 'unavailable', 's2': 'available'}}, ('availability', 's1', 'bob', None), 'недоступность сотрудника Bob на смене s1'),
-    ({'max_weekly_minutes': 60}, ('hours', None, 'bob', None), 'лимит часов сотрудника Bob: 1 ч в неделю')])
+    ({'roles': ['other']}, ('role', None, 'bob', 'worker'), 'missing role “worker” for employee Bob'),
+    ({'availability': {'s1': 'unavailable', 's2': 'available'}}, ('availability', 's1', 'bob', None), 'unavailability of employee Bob during shift s1'),
+    ({'max_weekly_minutes': 60}, ('hours', None, 'bob', None), 'hour limit for employee Bob: 1 h per week')])
 def test_pin_on_a_person_who_cannot_take_the_shift_names_both_conditions_whatever_the_unknowns_turn_out(inputs, pin, pin_kind, block, blocker, words):
     source, task = inputs
     source = with_unknown_on_another_shift(source)
@@ -127,9 +127,9 @@ def test_pin_on_a_person_who_cannot_take_the_shift_names_both_conditions_whateve
     conflict = conflict_in(result)
     assert conflict.code == 'conflict' and conflict.shift_ids == ['s1'] and conflict.employee_ids == ['bob']
     assert terms(conflict) == {(pin_kind, 's1', 'bob', None): 'solution', blocker: 'solution'}
-    assert words in conflict.message and 'закрепление смены s1 за сотрудником Bob' in conflict.message
-    assert 'даже если вся неизвестная доступность подтвердится' in conflict.message
-    assert 'без любого из этих условий решение появляется' in conflict.message
+    assert words in conflict.message and 'pin assigning shift s1 to employee Bob' in conflict.message
+    assert 'even if all unknown availability is confirmed' in conflict.message
+    assert 'removing any one of these constraints makes a solution feasible' in conflict.message
 
 
 def test_shift_nobody_can_take_names_the_shift_and_what_stops_each_person(inputs):
@@ -144,14 +144,14 @@ def test_shift_nobody_can_take_names_the_shift_and_what_stops_each_person(inputs
     assert conflict.shift_ids == ['s1'] and conflict.employee_ids == ['anna', 'bob', 'carol']
     assert terms(conflict) == {('coverage', 's1', None, None): 'solution', ('absence', 's1', 'anna', None): 'solution',
         ('role', None, 'bob', 'worker'): 'solution', ('availability', 's1', 'carol', None): 'solution'}
-    assert 'требование закрыть смену s1' in conflict.message
+    assert 'requirement to cover shift s1' in conflict.message
 
 
 def test_role_nobody_has_is_one_line_for_the_whole_team(inputs):
     source, task = inputs
     source = source.model_copy(update={'shifts': [source.shifts[0].model_copy(update={'role': 'manager'}), source.shifts[1]]})
     conflict = conflict_in(solve(source, task.model_copy(update={'absence': None})))
-    assert 'нет роли «manager» у сотрудников anna, bob, carol' in conflict.message
+    assert 'missing role “manager” for employees anna, bob, carol' in conflict.message
     assert sorted(c.employee_id for c in conflict.conditions if c.kind == 'role') == ['anna', 'bob', 'carol']
 
 
@@ -167,7 +167,7 @@ def test_two_pins_on_overlapping_shifts_of_one_person(inputs, second):
     assert conflict.code == 'conflict' and conflict.shift_ids == ['s1', 's2'] and conflict.employee_ids == ['bob']
     assert terms(conflict) == {('source_pin', 's1', 'bob', None): 'solution',
         ('source_pin' if second == 'source' else 'fixed_assignment', 's2', 'bob', None): 'solution'}
-    assert 'Пересекаются: s1 и s2' in conflict.message
+    assert 'Overlapping shifts: s1 and s2' in conflict.message
 
 
 def test_two_pins_over_the_hour_limit_name_the_limit_and_both_shifts(inputs):
@@ -180,7 +180,7 @@ def test_two_pins_over_the_hour_limit_name_the_limit_and_both_shifts(inputs):
     assert conflict.shift_ids == ['s1', 's2'] and conflict.employee_ids == ['bob']
     assert terms(conflict) == {('source_pin', 's1', 'bob', None): 'solution', ('source_pin', 's2', 'bob', None): 'solution',
         ('hours', None, 'bob', None): 'solution'}
-    assert 'Пересекаются' not in conflict.message and 'лимит часов сотрудника bob: 10 ч в неделю' in conflict.message
+    assert 'Overlapping shifts' not in conflict.message and 'hour limit for employee bob: 10 h per week' in conflict.message
 
 
 def test_more_overlapping_shifts_than_people_is_named_without_any_condition_to_blame(inputs):
@@ -188,7 +188,7 @@ def test_more_overlapping_shifts_than_people_is_named_without_any_condition_to_b
     source = source.model_copy(update={'employees': source.employees[:1], 'shifts': [s.model_copy(update={'employee_id': 'anna'}) for s in source.shifts]})
     conflict = conflict_in(solve(source, task.model_copy(update={'absence': None})))
     assert terms(conflict) == {('coverage', 's1', None, None): 'solution', ('coverage', 's2', None, None): 'solution'}
-    assert 'Пересекаются: s1 и s2' in conflict.message
+    assert 'Overlapping shifts: s1 and s2' in conflict.message
 
 
 def test_condition_that_is_not_enough_on_its_own_is_said_to_be_not_enough(inputs):
@@ -200,8 +200,8 @@ def test_condition_that_is_not_enough_on_its_own_is_said_to_be_not_enough(inputs
     result = solve(source, task)
     conflict = conflict_in(result)
     assert terms(conflict) == {('source_pin', 's1', 'bob', None): 'no_solution', ('role', None, 'bob', 'worker'): 'solution'}
-    assert 'без условия 2 решение появляется' in conflict.message
-    assert 'без условия 1 решения всё равно нет' in conflict.message
+    assert 'without constraint 2, a solution becomes feasible' in conflict.message
+    assert 'without constraint 1, there is still no solution' in conflict.message
 
 
 def test_independent_conflicts_are_each_named_and_checked_with_the_other_one_lifted(inputs):
@@ -213,11 +213,11 @@ def test_independent_conflicts_are_each_named_and_checked_with_the_other_one_lif
     result = solve(source, task)
     assert result.outcome == 'infeasible' and len(result.issues) == 2
     absence, availability = result.issues
-    assert absence.code == 'pinned_absence' and absence.message.startswith('Конфликт 1 из 2.')
-    assert availability.code == 'conflict' and availability.message.startswith('Конфликт 2 из 2.')
+    assert absence.code == 'pinned_absence' and absence.message.startswith('Conflict 1 of 2.')
+    assert availability.code == 'conflict' and availability.message.startswith('Conflict 2 of 2.')
     assert terms(absence) == {('source_pin', 's1', 'anna', None): 'solution', ('absence', 's1', 'anna', None): 'solution'}
     assert terms(availability) == {('source_pin', 's2', 'bob', None): 'solution', ('availability', 's2', 'bob', None): 'solution'}
-    assert 'при снятых остальных конфликтах' in absence.message
+    assert 'with the other conflicts removed' in absence.message
 
 
 def test_pins_that_conflict_in_pairs_say_no_single_removal_is_enough(inputs):
@@ -228,7 +228,7 @@ def test_pins_that_conflict_in_pairs_say_no_single_removal_is_enough(inputs):
         'employees': [e.model_copy(update={'availability': {**e.availability, 's3': 'available'}}) for e in source.employees]})
     conflict = conflict_in(solve(source, task.model_copy(update={'absence': None})))
     assert set(terms(conflict).values()) == {'no_solution'} and len(conflict.conditions) == 2
-    assert 'Без всех этих условий вместе решение появляется.' in conflict.message
+    assert 'With all these constraints removed together, a solution becomes feasible.' in conflict.message
 
 
 def test_removal_that_needs_an_unknown_confirmed_says_so(inputs):
@@ -239,7 +239,7 @@ def test_removal_that_needs_an_unknown_confirmed_says_so(inputs):
             for e in source.employees]})
     conflict = conflict_in(solve(source, task.model_copy(update={'absence': None})))
     assert terms(conflict) == {('source_pin', 's1', 'bob', None): 'solution', ('role', None, 'bob', 'worker'): 'solution_if_confirmed'}
-    assert 'только если подтвердится неизвестная доступность' in conflict.message
+    assert 'only if unknown availability is confirmed' in conflict.message
 
 
 def test_shift_nobody_can_take_is_proven_and_the_proof_stays_in_the_journal(inputs):
@@ -250,7 +250,7 @@ def test_shift_nobody_can_take_is_proven_and_the_proof_stays_in_the_journal(inpu
     result = solve(source, task.model_copy(update={'absence': None}), event=lambda code, message: journal.append(message))
     assert result.outcome == 'infeasible' and not result.scenarios
     assert len(result.attempts) == 1 and result.attempts[0].status == 'INFEASIBLE'
-    assert any('неизвестная доступность' in message for message in journal)
+    assert any('unknown availability' in message for message in journal)
 
 
 def test_pin_on_a_person_with_unknown_availability_still_asks_to_clarify(inputs):
@@ -308,8 +308,8 @@ def test_no_time_left_for_diagnosis_keeps_the_general_answer_and_the_journal_say
     journal = []
     result = solve(source, task, max_seconds=1, on_solver=after_the_main_search, event=lambda code, message: journal.append((code, message)))
     assert result.outcome == 'infeasible' and [i.code for i in result.issues] == ['infeasible']
-    assert 'Минимальный набор причин не определялся.' in result.issues[0].message and not result.issues[0].conditions
-    assert any(code == 'diagnosis' and 'лимит' in message for code, message in journal)
+    assert 'A minimal set of causes was not identified.' in result.issues[0].message and not result.issues[0].conditions
+    assert any(code == 'diagnosis' and 'limit' in message for code, message in journal)
 
 
 def test_no_search_starts_once_the_budget_is_spent(inputs, monkeypatch):
@@ -365,7 +365,7 @@ def test_proposal_that_is_not_a_real_conflict_never_reaches_the_person(inputs, m
     journal = []
     result = solve(source, task, event=lambda code, message: journal.append((code, message)))
     assert result.outcome == 'infeasible' and [i.code for i in result.issues] == ['infeasible']
-    assert any(code == 'diagnosis' and 'не подтвердила' in message for code, message in journal)
+    assert any(code == 'diagnosis' and 'did not confirm' in message for code, message in journal)
 
 
 def test_conflict_is_narrowed_down_to_what_a_person_entered(inputs, monkeypatch):
@@ -478,8 +478,8 @@ def reconcile_named_conflicts_with_exhaustive_search(source, task, result):
             assert condition.employee_id is None or condition.employee_id in issue.employee_ids
             assert condition.shift_id is None or condition.shift_id in issue.shift_ids
         if all(c.removal_check == 'no_solution' for c in issue.conditions):
-            words = 'решение появляется' if complete_schedule_exists(source, task, named) else 'только если подтвердится'
-            assert words in issue.message.rsplit('вместе', 1)[1]
+            words = 'a solution becomes feasible' if complete_schedule_exists(source, task, named) else 'only if'
+            assert words in issue.message.rsplit('together', 1)[1]
 
 
 def test_named_conflicts_agree_with_exhaustive_search_over_random_conditions(inputs):

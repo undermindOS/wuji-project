@@ -60,12 +60,12 @@ def create_app(settings: Settings | None = None, ai_settings: AiSettings | None 
     async def local_request_boundary(request: Request, call_next):
         length = request.headers.get('content-length')
         if length and (not length.isdigit() or int(length) > 16 * 1024 * 1024):
-            return JSONResponse(status_code=413, content=ApiError(code='request_size', message='Общий размер запроса ограничен 16 МБ.').model_dump(by_alias=True))
+            return JSONResponse(status_code=413, content=ApiError(code='request_size', message='The total request size is limited to 16 MB.').model_dump(by_alias=True))
         if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'}:
             origin = request.headers.get('origin')
             from urllib.parse import urlsplit
             if origin and (urlsplit(origin).hostname not in {'127.0.0.1', 'localhost'} or urlsplit(origin).scheme != 'http'):
-                return JSONResponse(status_code=403, content=ApiError(code='origin', message='Локальный API принимает изменения только из локального интерфейса.').model_dump(by_alias=True))
+                return JSONResponse(status_code=403, content=ApiError(code='origin', message='The local API accepts changes only from the local interface.').model_dump(by_alias=True))
         response = await call_next(request)
         response.headers['X-Content-Type-Options'] = 'nosniff'
         return response
@@ -76,18 +76,18 @@ def create_app(settings: Settings | None = None, ai_settings: AiSettings | None 
 
     @app.exception_handler(IntegrityError)
     async def handle_integrity(request, error):
-        return JSONResponse(status_code=409, content=ApiError(code='original_integrity', message='Оригинальный файл отсутствует или его hash изменился. Повторите загрузку.').model_dump(by_alias=True))
+        return JSONResponse(status_code=409, content=ApiError(code='original_integrity', message='The original file is missing or its hash has changed. Upload it again.').model_dump(by_alias=True))
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation(request, error):
         # Only the field path is echoed; Pydantic's msg and input carry the submitted values.
         fields = sorted({'.'.join(str(part) for part in item['loc'][1:]) for item in error.errors() if len(item['loc']) > 1})
-        message = f'Проверьте поля запроса: {", ".join(fields)}.' if fields else 'Проверьте обязательные поля и типы запроса.'
+        message = f'Check the request fields: {", ".join(fields)}.' if fields else 'Check the required request fields and types.'
         return JSONResponse(status_code=422, content=ApiError(code='request_schema', message=message).model_dump(by_alias=True))
 
     @app.exception_handler(OperationalError)
     async def handle_database(request, error):
-        return JSONResponse(status_code=503, content=ApiError(code='database_unavailable', message='База данных недоступна. Проверьте запуск backend и миграции.').model_dump(by_alias=True))
+        return JSONResponse(status_code=503, content=ApiError(code='database_unavailable', message='Database unavailable. Check that the backend is running and migrations are applied.').model_dump(by_alias=True))
 
     @app.get('/api/v1/health', response_model=Health)
     def health():
@@ -107,7 +107,7 @@ def create_app(settings: Settings | None = None, ai_settings: AiSettings | None 
         for kind, name in [('schedule', 'team_week_02-08_nov.csv'), ('employees', 'employees.csv'), ('availability', 'availability.csv')]:
             raw = (directory / name).read_bytes()
             files.append((OriginalFile(id=str(uuid4()), filename=name, kind=kind, sha256=hashlib.sha256(raw).hexdigest(), size=len(raw)), raw))
-        parsed = parse_import(files, 'Студия «Север»', 'Europe/Moscow', 'RUB')
+        parsed = parse_import(files, 'North Studio', 'Europe/Moscow', 'RUB')
         source = SourceVersion(**parsed.source.model_dump(), id='template', version=0)
         content, media, _ = export_source(source, format)
         return Response(content, media_type=media, headers={'Content-Disposition': f'attachment; filename="wuji-template.{"zip" if format == "csv" else "xlsx"}"'})
@@ -134,20 +134,20 @@ def create_app(settings: Settings | None = None, ai_settings: AiSettings | None 
         with sessions() as db:
             project = project_or_404(db, str(project_id))
             if project.head_source_id != expected_source_version_id:
-                raise ServiceError(409, 'source_conflict', 'Текущий исходник проекта изменился. Обновите проект перед импортом.')
+                raise ServiceError(409, 'source_conflict', 'The project’s current source has changed. Refresh the project before importing.')
             # Length and spelling become import issues; a control character cannot, because JSONB
             # rejects \u0000 and the preview row would fail to store before the issue is reported.
             if any(ord(character) < 32 for character in team_name):
-                raise ServiceError(422, 'team_name', 'Название команды не должно содержать управляющие знаки.')
+                raise ServiceError(422, 'team_name', 'The team name must not contain control characters.')
             files = []
             for kind, upload in [('schedule', schedule), ('employees', employees), ('availability', availability), ('workbook', workbook)]:
                 if upload:
                     basename = (upload.filename or '').replace('\\', '/').split('/')[-1]
                     if not basename or len(basename) > 255 or any(ord(c) < 32 for c in basename):
-                        raise ServiceError(422, 'filename', 'Имя файла должно содержать до 255 символов без управляющих знаков.')
+                        raise ServiceError(422, 'filename', 'The filename must contain up to 255 characters without control characters.')
                     raw = upload.file.read(MAX_FILE_BYTES + 1)
                     if len(raw) > MAX_FILE_BYTES:
-                        raise ServiceError(413, 'file_size', 'Размер одного файла ограничен 5 МБ.')
+                        raise ServiceError(413, 'file_size', 'Each file is limited to 5 MB.')
                     original = store.save(upload.filename or f'{kind}.csv', kind, raw)
                     files.append((original, raw))
             parsed = parse_import(files, team_name, timezone, currency)
@@ -226,7 +226,7 @@ def create_app(settings: Settings | None = None, ai_settings: AiSettings | None 
             source = source_or_404(db, str(project_id), str(source_id))
             file = next((file for file in source.original_files if file.id == str(file_id)), None)
             if not file:
-                raise ServiceError(404, 'file_not_found', 'Файл не принадлежит этой версии исходника.')
+                raise ServiceError(404, 'file_not_found', 'The file does not belong to this source version.')
             content = store.read(file.sha256)
             return Response(content, media_type='application/octet-stream', headers={
                 'Content-Disposition': f"attachment; filename*=UTF-8''{quote(file.filename, safe='')}", 'ETag': f'"{file.sha256}"'})

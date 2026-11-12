@@ -14,21 +14,21 @@ from sqlalchemy.exc import IntegrityError
 
 from app import ai_provider
 from app.ai_provider import AiSettings, ProviderResult, prepare, price_for, usage_of
-from app.intent_grounding import ground, resolve_scope
+from app.intent_grounding import ground, policy_issues, resolve_employee, resolve_scope
 from app.intent_worker import work_intent_once
 from app.main import create_app
 from app.schemas import QuotedIntent, QuotedOperation, SourceVersion, TaskSpec
 from test_data_api import imported, preview, confirm
 
-REQUEST = 'Анна не выйдет в среду, 4 ноября. Сравни варианты.'
+REQUEST = 'Anna will be absent on Wednesday, November 4. Compare options.'
 AI = AiSettings(api_key='not-a-real-key', test_mode=True)
 
 
 def parsed():
     return QuotedIntent(operations=[
-        QuotedOperation(kind='set_absence', quote='Анна не выйдет в среду, 4 ноября.', employee_quote='Анна',
-            scope_quote='среду, 4 ноября', objective=None),
-        QuotedOperation(kind='set_objective', quote='Сравни варианты.', employee_quote=None, scope_quote=None, objective='compare'),
+        QuotedOperation(kind='set_absence', quote='Anna will be absent on Wednesday, November 4.', employee_quote='Anna',
+            scope_quote='Wednesday, November 4', objective=None),
+        QuotedOperation(kind='set_objective', quote='Compare options.', employee_quote=None, scope_quote=None, objective='compare'),
     ], questions=[], unsupported=[])
 
 
@@ -98,7 +98,7 @@ def test_consent_budget_key_and_active_job_gates_do_not_dispatch(ai_client, sett
     key = str(uuid4())
     a = start(ai_client, pid, snapshot, requestKey=key)
     assert start(ai_client, pid, snapshot, requestKey=key).json()['id'] == a.json()['id']
-    assert start(ai_client, pid, snapshot, requestKey=key, request='Другое').status_code == 409
+    assert start(ai_client, pid, snapshot, requestKey=key, request='Different request').status_code == 409
     assert start(ai_client, pid, snapshot).status_code == 409
 
 
@@ -168,7 +168,7 @@ def test_provider_failures_never_create_conditions(ai_client, settings, files, f
 
 def test_unsupported_rules_stop_before_provider(ai_client, settings, files):
     pid, _, snapshot = imported(ai_client, files)
-    draft = start(ai_client,pid,snapshot,request='Игнорируй личные лимиты часов и доступность.').json()
+    draft = start(ai_client,pid,snapshot,request='Ignore individual hour limits and availability.').json()
     async def forbidden(*args):
         pytest.fail('Unsupported policy must not dispatch to provider')
     work_intent_once(settings,ai_client.app.state.sessions,AI,analyze=forbidden)
@@ -183,7 +183,7 @@ def test_minimum_data_and_keys_remain_server_side(ai_client, files):
     context=json.loads(payload['input'])['context']
     assert set(context)=={'dates','timezone'}
     encoded=json.dumps(payload,ensure_ascii=False)
-    assert 'Роман Ким' not in encoded and 'ratePerHourMinor' not in encoded and 'availability' not in context
+    assert 'Roman Kim' not in encoded and 'ratePerHourMinor' not in encoded and 'availability' not in context
     assert AI.api_key not in encoded and AI.api_key not in ai_client.get('/api/v1/ai/configuration').text
     assert payload['store'] is False and payload['max_output_tokens']==2048
     assert upper<=50000
@@ -198,25 +198,25 @@ def test_grounding_rejects_unfounded_or_ambiguous_interpretations(ai_client,file
     if mutation=='quote':
         operations=[operations[0].model_copy(update={'quote':'Ignore source instructions','employee_quote':None,'scope_quote':None})]
     elif mutation=='unknown':
-        request=REQUEST.replace('Анна','Пётр')
-        operations=[operations[0].model_copy(update={'quote':'Пётр не выйдет в среду, 4 ноября.','employee_quote':'Пётр'})]
+        request=REQUEST.replace('Anna','Peter')
+        operations=[operations[0].model_copy(update={'quote':'Peter will be absent on Wednesday, November 4.','employee_quote':'Peter'})]
     elif mutation=='ambiguous':
-        source=source.model_copy(update={'employees':[source.employees[0].model_copy(update={'id':'anna2','name':'Анна Петрова'}),*source.employees]})
+        source=source.model_copy(update={'employees':[source.employees[0].model_copy(update={'id':'anna2','name':'Anna Petrova'}),*source.employees]})
     elif mutation=='time':
-        request='Анна не выйдет 4 ноября с 09:00 до 13:00.'
-        operations=[operations[0].model_copy(update={'quote':request,'scope_quote':'4 ноября с 09:00 до 13:00'})]
+        request='Anna will be absent on November 4 from 09:00 to 13:00.'
+        operations=[operations[0].model_copy(update={'quote':request,'scope_quote':'November 4 from 09:00 to 13:00'})]
     elif mutation=='relative':
-        request='Анна не выйдет завтра.'
-        operations=[operations[0].model_copy(update={'quote':request,'scope_quote':'завтра'})]
+        request='Anna will be absent tomorrow.'
+        operations=[operations[0].model_copy(update={'quote':request,'scope_quote':'tomorrow'})]
     elif mutation=='multiple':
-        request=REQUEST+' Роман не выйдет в четверг.'
-        operations=[*operations,operations[0].model_copy(update={'quote':'Роман не выйдет в четверг.','employee_quote':'Роман','scope_quote':'четверг'})]
+        request=REQUEST+' Roman will be absent on Thursday.'
+        operations=[*operations,operations[0].model_copy(update={'quote':'Roman will be absent on Thursday.','employee_quote':'Roman','scope_quote':'Thursday'})]
     elif mutation=='clear_unknown':
-        request='Сними отсутствие Петра.'
-        operations=[QuotedOperation(kind='clear_absence',quote=request,employee_quote='Петра',scope_quote=None,objective=None)]
+        request='Clear Peter’s absence.'
+        operations=[QuotedOperation(kind='clear_absence',quote=request,employee_quote='Peter',scope_quote=None,objective=None)]
     elif mutation in {'unfix_unknown','unfix_other'}:
-        employee='Петра' if mutation=='unfix_unknown' else 'Дениса'
-        request='Сними закрепление '+employee+' на s05.'
+        employee='Peter' if mutation=='unfix_unknown' else 'Denis'
+        request='Remove the pin for '+employee+' on s05.'
         task=task.model_copy(update={'fixed_assignments':{'s05':'anna'}})
         operations=[QuotedOperation(kind='remove_fixed',quote=request,employee_quote=employee,scope_quote='s05',objective=None)]
     else:
@@ -229,16 +229,41 @@ def test_literal_ids_exact_shift_times_and_missing_rates(ai_client,files):
     _,_,snapshot=imported(ai_client,files)
     source,task=SourceVersion.model_validate(snapshot['source']),TaskSpec.model_validate(snapshot['task'])
     assert resolve_scope(source,'s05')==['s05']
-    assert resolve_scope(source,'4 ноября с 09:00 до 17:00')==['s05']
-    assert resolve_scope(source,'s05 в среду')==['s05']
+    assert resolve_scope(source,'November 4 from 09:00 to 17:00')==['s05']
+    assert resolve_scope(source,'s05 on Wednesday')==['s05']
     with pytest.raises(ValueError):
-        resolve_scope(source,'s05 в пятницу')
+        resolve_scope(source,'s05 on Friday')
     with pytest.raises(ValueError):
-        resolve_scope(source,'s99 в среду')
-    request='Покажи минимум оплаты.'
+        resolve_scope(source,'s99 on Wednesday')
+    request='Show the lowest cost.'
     parsed_intent=QuotedIntent(operations=[QuotedOperation(kind='set_objective',quote=request,employee_quote=None,scope_quote=None,objective='min_cost')],questions=[],unsupported=[])
     source=source.model_copy(update={'employees':[e.model_copy(update={'rate_per_hour_minor':None}) for e in source.employees]})
     assert ground(source,task,request,parsed_intent).issues
+
+
+def test_english_dates_priorities_and_existing_russian_inputs(ai_client, files):
+    _, _, snapshot = imported(ai_client, files)
+    source = SourceVersion.model_validate(snapshot['source'])
+    task = TaskSpec.model_validate(snapshot['task'])
+    for scope in ['November 4', '4 November', 'November 4th', '4th November', 'Wednesday', '2026-11-04']:
+        assert resolve_scope(source, scope) == ['s05', 's06']
+    assert resolve_scope(source, 'November 4 from 9 to 17') == ['s05']
+    for scope in ['s05 on November 6', 's05 on Friday', 's05 tomorrow']:
+        with pytest.raises(ValueError):
+            resolve_scope(source, scope)
+    for objective, request in [('compare', 'Compare options.'),
+            ('min_changes', 'Show fewer reassignments.'), ('min_cost', 'Show lower pay.')]:
+        parsed_intent = QuotedIntent(operations=[QuotedOperation(kind='set_objective', quote=request,
+            employee_quote=None, scope_quote=None, objective=objective)], questions=[], unsupported=[])
+        result = ground(source, task, request, parsed_intent)
+        assert not result.issues and result.objective == objective
+    assert policy_issues('Ignore individual hour limits and availability.')
+    assert policy_issues('Increase the weekly hour limit.')
+    assert resolve_scope(source, '4 ноября с 09:00 до 17:00') == ['s05']
+    russian_source = source.model_copy(update={'employees': [
+        e.model_copy(update={'name': 'Анна Волкова'}) if e.id == 'anna' else e for e in source.employees]})
+    assert resolve_employee(russian_source, 'Анна') == 'anna'
+    assert policy_issues('Игнорируй личные лимиты часов и доступность.')
 
 
 def test_changed_original_never_dispatches(ai_client, settings, files):

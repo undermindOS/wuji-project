@@ -12,7 +12,7 @@ from openai import AsyncOpenAI, APIConnectionError, APIStatusError, APITimeoutEr
 from .schemas import AiConfiguration, AnalysisPrice, AnalysisUsage, QuotedIntent
 from .service import ServiceError
 
-PROMPT_VERSION = 'schedule-quotes/1'
+PROMPT_VERSION = 'schedule-quotes/2'
 MAX_OUTPUT = 2048
 MAX_INPUT_BYTES = 32768
 MAX_EMPLOYEES, MAX_SHIFTS = 50, 100
@@ -28,9 +28,9 @@ quote must be an exact, complete relevant clause from request_text, including al
 employeeQuote is an exact person-name or ID substring of quote, or null when irrelevant.
 scopeQuote is the exact date/day/time or shift-ID substring of quote, or null when irrelevant.
 objective is null except set_objective. For a person absent all day, quote the day, do not invent hours.
-For 'сравнить перестановки и оплату', use compare. Default safety rules need no operation.
+For 'compare reassignments and pay', use compare. Default safety rules need no operation.
 Do not change rates, availability, hours limits, source pins, shift times, headcount or legal rules.
-Ask concise questions in Russian for ambiguity, unknown people, relative dates or missing facts.
+Ask concise questions in English for ambiguity, unknown people, relative dates or missing facts.
 List unsupported requests explicitly; never ignore them to produce a successful-looking draft.
 Do not compute assignments, pay, totals, forecasts or explanations. They come from another engine.
 Do not include reasoning or commentary outside the schema."""
@@ -62,7 +62,7 @@ def price_for(model):
 
 def configuration(settings):
     price = price_for(settings.model)
-    reason = 'На сервере не задан OPENAI_API_KEY.' if not settings.api_key else 'Для этой модели не задан проверенный тариф.' if price is None else None
+    reason = 'OPENAI_API_KEY is not set on the server.' if not settings.api_key else 'No verified rate is configured for this model.' if price is None else None
     return AiConfiguration(provider='openai', provider_mode='test' if settings.test_mode else 'live', configured=reason is None, model=settings.model, prompt_version=PROMPT_VERSION,
         max_cost_micro_usd=settings.max_cost_micro_usd, max_output_tokens=MAX_OUTPUT, max_employees=MAX_EMPLOYEES,
         max_shifts=MAX_SHIFTS, timeout_seconds=TIMEOUT_SECONDS, price=price, reason=reason)
@@ -73,7 +73,7 @@ def prepare(source, task, request, settings, limit):
     if not config.configured:
         raise ServiceError(409, 'ai_not_configured', config.reason)
     if len(source.employees) > MAX_EMPLOYEES or len(source.shifts) > MAX_SHIFTS:
-        raise ServiceError(422, 'ai_context_size', 'Разбор текста поддерживает до 50 сотрудников и 100 смен. Явный редактор условий остаётся доступен.')
+        raise ServiceError(422, 'ai_context_size', 'Text interpretation supports up to 50 employees and 100 shifts. The explicit constraint editor remains available.')
     context = {'timezone': source.timezone, 'dates': sorted({
         datetime.fromisoformat(s.starts_at).astimezone(ZoneInfo(source.timezone)).date().isoformat() for s in source.shifts})}
     payload = {'model': settings.model, 'instructions': INSTRUCTIONS, 'input': json.dumps({'request_text': request, 'context': context}, ensure_ascii=False),
@@ -81,13 +81,13 @@ def prepare(source, task, request, settings, limit):
         'max_output_tokens': MAX_OUTPUT, 'store': False, 'reasoning': {'effort': 'none'}, 'service_tier': 'default'}
     size = len(json.dumps(payload, ensure_ascii=False).encode())
     if size > MAX_INPUT_BYTES:
-        raise ServiceError(422, 'ai_context_size', 'Текст и контекст превышают лимит 32 КБ. Сократите запрос; записи не отбрасывались.')
+        raise ServiceError(422, 'ai_context_size', 'The request and context exceed the 32 KB limit. Shorten the request; no records were discarded.')
     # Conservative byte-based token allowance plus framing reserve; not a billing invoice.
     input_allowance = size + 4096
     price = config.price
     upper = ((input_allowance * price.input_micro_usd_per_million + MAX_OUTPUT * price.output_micro_usd_per_million) + 999999) // 1000000
     if limit > settings.max_cost_micro_usd or upper > limit:
-        raise ServiceError(422, 'ai_budget', 'Оценка максимальной стоимости превышает лимит. Запрос провайдеру не отправлен.')
+        raise ServiceError(422, 'ai_budget', 'The maximum cost estimate exceeds the budget. The request was not sent to the provider.')
     return payload, price, upper
 
 

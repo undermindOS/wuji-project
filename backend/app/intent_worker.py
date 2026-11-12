@@ -30,7 +30,7 @@ def work_intent_once(settings, sessions, ai_settings=None, shutdown=None, analyz
             return False
         draft_id, token = record.id, str(uuid4())
         record.status, record.worker_token, record.heartbeat_at = 'running', token, now()
-        record.events = [*record.events, event('started', 'Начат разбор текста; сохранённые условия пока не меняются.')]
+        record.events = [*record.events, event('started', 'Text interpretation started; saved constraints are unchanged for now.')]
         db.commit()
     done, cancelled = threading.Event(), threading.Event()
 
@@ -69,8 +69,8 @@ def work_intent_once(settings, sessions, ai_settings=None, shutdown=None, analyz
                 if current.cancel_requested or current.status != 'running' or current.worker_token != token:
                     cancelled.set()
                 else:
-                    message = ('Вызван контрольный адаптер. Живого обращения к провайдеру нет.' if test_record else
-                        'Начата передача текста и календаря недели OpenAI. Файлы, состав команды, ставки и доступность отдельно не передаются.')
+                    message = ('Test adapter called. No live provider request was made.' if test_record else
+                        'Sending the request text and week’s calendar to OpenAI. Files, roster, rates and availability are not sent separately.')
                     if not test_record or injected_adapter:
                         current.events = [*current.events, event('provider_request', message)]
                     db.commit()
@@ -102,7 +102,7 @@ def work_intent_once(settings, sessions, ai_settings=None, shutdown=None, analyz
         else:
             current.proposal = proposal.model_dump(mode='json', by_alias=True)
             current.status = 'needs_clarification' if proposal.issues else 'ready'
-            current.events = [*current.events, event('grounded', 'Цитаты, сотрудники и интервалы сопоставлены с исходником. Вопросов: ' + str(len(proposal.issues)) + '.')]
+            current.events = [*current.events, event('grounded', 'Quotes, employees and intervals matched to the source. Questions: ' + str(len(proposal.issues)) + '.')]
         current.finished_at = current.heartbeat_at = now()
         db.commit()
     return True

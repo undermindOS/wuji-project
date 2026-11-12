@@ -18,28 +18,28 @@ class CalculationCancelled(Exception):
 def input_problem(source, task):
     ids, employees = {s.id for s in source.shifts}, {e.id for e in source.employees}
     if not ids or not employees or len(ids) != len(source.shifts) or len(employees) != len(source.employees):
-        return 'Пустые или повторные ID во входах.'
+        return 'Empty or duplicate IDs in the inputs.'
     if task.source_version_id != source.id or any(s.employee_id not in employees for s in source.shifts):
-        return 'Версии или ссылки во входах не совпадают.'
+        return 'Input versions or references do not match.'
     if len(ids) * len(employees) > 50_000:
-        return 'Матрица сотрудников и смен превышает 50 000 ячеек.'
+        return 'The employee–shift matrix exceeds 50,000 cells.'
     if task.absence and (task.absence.employee_id not in employees or not task.absence.shift_ids
         or len(set(task.absence.shift_ids)) != len(task.absence.shift_ids)
         or any(sid not in ids for sid in task.absence.shift_ids)):
-        return 'Некорректная ссылка в условии об отсутствии.'
+        return 'Invalid reference in the absence constraint.'
     if any(sid not in ids or eid not in employees for sid, eid in task.fixed_assignments.items()):
-        return 'Некорректная ссылка в закреплениях условий.'
+        return 'Invalid reference in the pinned assignments.'
     for s in source.shifts:
         try:
             a, b = datetime.fromisoformat(s.starts_at), datetime.fromisoformat(s.ends_at)
             duration = b.timestamp() - a.timestamp()
             if a.utcoffset() is None or b.utcoffset() is None or duration <= 0 or duration > 86400 or a.second or a.microsecond or b.second or b.microsecond:
-                return 'Начало и конец смены должны задавать точный интервал минут с часовым поясом.'
+                return 'Shift start and end must define an exact minute interval with a time zone.'
         except (ValueError, OverflowError):
-            return 'Некорректное время смены.'
+            return 'Invalid shift time.'
     if any(e.max_weekly_minutes < 0 or e.max_weekly_minutes > 10080 or
         (e.rate_per_hour_minor is not None and not 0 <= e.rate_per_hour_minor <= 1_000_000_000) for e in source.employees):
-        return 'Лимиты времени или ставки выходят за поддержанный диапазон.'
+        return 'Time limits or rates are outside the supported range.'
     return None
 
 
@@ -113,7 +113,7 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
     change_expr = sum(v for (sid, eid), v in choices.items() if original_employee[sid] != eid)
     cost_expr = sum(cost_terms)
     if not costs_known:
-        issues.append(SolveIssue(code='cost_priority_unavailable', message='Приоритет стоимости отключён: нужны ставки всех сотрудников. Часы и перестановки рассчитываются.'))
+        issues.append(SolveIssue(code='cost_priority_unavailable', message='The cost objective is disabled: all employee rates are required. Hours and reassignments are still calculated.'))
     direct_conflict = False
     for s in source.shifts:
         # Contradictions that can be named exactly. This list is about wording, not soundness: any
@@ -121,15 +121,15 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
         fixed = task.fixed_assignments.get(s.id)
         if s.pinned and absent_for(s.employee_id, s.id):
             direct_conflict = True
-            issues.append(SolveIssue(code='pinned_absence', message='Смена закреплена за отсутствующим сотрудником. Оба обязательных условия сохранены.',
+            issues.append(SolveIssue(code='pinned_absence', message='A shift is pinned to an absent employee. Both required constraints are preserved.',
                 shift_ids=[s.id], employee_ids=[s.employee_id], source_refs=list(s.source_refs.values())))
         if fixed is not None and absent_for(fixed, s.id):
             direct_conflict = True
-            issues.append(SolveIssue(code='fixed_absence', message='Закрепление в условиях назначает смену отсутствующему сотруднику. Оба обязательных условия сохранены.',
+            issues.append(SolveIssue(code='fixed_absence', message='A pin in the constraints assigns a shift to an absent employee. Both required constraints are preserved.',
                 shift_ids=[s.id], employee_ids=[fixed], source_refs=list(s.source_refs.values())))
         if fixed is not None and s.pinned and fixed != s.employee_id:
             direct_conflict = True
-            issues.append(SolveIssue(code='fixed_pin_conflict', message='Закрепление в условиях называет не того сотрудника, что закрепление исходника. Оба обязательных условия сохранены.',
+            issues.append(SolveIssue(code='fixed_pin_conflict', message='A pin in the constraints names a different employee than the source pin. Both required constraints are preserved.',
                 shift_ids=[s.id], employee_ids=sorted({s.employee_id, fixed}), source_refs=list(s.source_refs.values())))
 
     def run(current_model, seconds, light=probe):
@@ -171,15 +171,15 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
         # can turn out, so only its INFEASIBLE proves that asking cannot help. Running out of time here
         # proves nothing and keeps the question. Nothing found by this search is ever published.
         outcome = probed(unknown_confirmed(source), task.model_copy(update={'objective': 'min_changes'})).outcome
-        event('search', 'Допущение «вся неизвестная доступность подтвердилась»: '
-            + {'infeasible': 'решения всё равно нет.', 'solutions': 'решение появляется.'}.get(outcome, 'поиск не дал ответа.'))
+        event('search', 'Assuming all unknown availability is confirmed: '
+            + {'infeasible': 'there is still no solution.', 'solutions': 'a solution becomes feasible.'}.get(outcome, 'the search was inconclusive.'))
         return outcome == 'infeasible'
 
     def within_budget(step):
         def guarded(*inputs):
             # At zero time CP-SAT still answers what presolve alone can settle.
             if time.monotonic() >= deadline:
-                raise Inconclusive('не хватило лимита времени')
+                raise Inconclusive('the time limit was reached')
             return step(*inputs)
         return guarded
 
@@ -188,17 +188,17 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
             return explain(source, task, within_budget(probed),
                 within_budget(lambda current: run(current, deadline - time.monotonic(), light=True)), bool(unknown), event)
         except Inconclusive as reason:
-            event('diagnosis', 'Диагностика причин остановлена: ' + str(reason) + '. Выдан общий ответ.')
+            event('diagnosis', 'Conflict diagnosis stopped: ' + str(reason) + '. A general response was returned.')
             return []
 
     if task.objective == 'min_cost' and not costs_known:
-        issues.append(SolveIssue(code='cost_required', message='Для выбранного приоритета минимальной оплаты нужны ставки всех сотрудников.'))
+        issues.append(SolveIssue(code='cost_required', message='The selected minimum-pay objective requires rates for all employees.'))
         return finish('needs_clarification')
     priorities = (['min_changes', 'min_cost'] if costs_known else ['min_changes']) if task.objective == 'compare' else [task.objective]
     for index, priority in enumerate(priorities):
         checkpoint()
         if index and time.monotonic() >= deadline:
-            issues.append(SolveIssue(code='secondary_limit', message='Общий лимит исчерпан до второго приоритета.'))
+            issues.append(SolveIssue(code='secondary_limit', message='The total time limit was reached before the second objective.'))
             break
         current = model.clone()
         primary, secondary = (change_expr, cost_expr) if priority == 'min_changes' else (cost_expr, change_expr)
@@ -210,7 +210,7 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
             if probe:
                 return finish('infeasible')
             if unknown and not direct_conflict and not no_clarification_can_help():
-                issues.append(SolveIssue(code='availability_unknown', message='При подтверждённой доступности решения нет. Уточните неизвестную доступность; невозможность для этих неизвестных данных не утверждается.',
+                issues.append(SolveIssue(code='availability_unknown', message='No solution exists with confirmed availability. Clarify unknown availability; infeasibility is not asserted for those unknown values.',
                     shift_ids=sorted({s.id for s, e in unknown}), employee_ids=sorted({e.id for s, e in unknown}),
                     source_refs=[ref for s, e in unknown for ref in [e.source_refs.get('availability.' + s.id)] if ref is not None][:100]))
                 return finish('needs_clarification')
@@ -218,11 +218,11 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
             if named:
                 issues[:] = [i for i in issues if i.code not in {'pinned_absence', 'fixed_absence', 'fixed_pin_conflict'}] + named
             elif not direct_conflict:
-                issues.append(SolveIssue(code='infeasible', message='Доказана невозможность при сохранении всех введённых обязательных условий'
-                    + (', даже если вся неизвестная доступность подтвердится' if unknown else '') + '. Минимальный набор причин не определялся.'))
+                issues.append(SolveIssue(code='infeasible', message='Infeasibility proven with all required input constraints preserved'
+                    + (', even if all unknown availability is confirmed' if unknown else '') + '. A minimal set of causes was not identified.'))
             return finish('infeasible')
         if status == 'MODEL_INVALID':
-            issues.append(SolveIssue(code='model_invalid', message='CP-SAT отклонил модель данных. Вариант не выдаётся.'))
+            issues.append(SolveIssue(code='model_invalid', message='CP-SAT rejected the data model. No option is returned.'))
             return finish('invalid')
         if assignments is None:
             continue
@@ -233,20 +233,20 @@ def solve(source, task, max_seconds=10, cancelled=lambda: False, on_solver=lambd
             if tied is not None:
                 assignments = tied
         scenario = Scenario(id=str(uuid4()), source_version_id=source.id, task_spec_id=task.id,
-            label='Меньше перестановок' if priority == 'min_changes' else 'Меньше оплаты',
-            description='Приоритет: минимум изменённых назначений.' if priority == 'min_changes' else 'Приоритет: минимум оплаты по известным ставкам.',
+            label='Fewer reassignments' if priority == 'min_changes' else 'Lower pay',
+            description='Priority: minimize changed assignments.' if priority == 'min_changes' else 'Priority: minimize pay at known rates.',
             assignments=assignments)
         validation, metrics, evidence = evaluate(source, task, scenario)
         if validation.status != 'pass':
-            issues.append(SolveIssue(code='validation_failed', message='Независимая проверка отклонила результат. Вариант не выдаётся.'))
+            issues.append(SolveIssue(code='validation_failed', message='Independent validation rejected the result. No option is returned.'))
             scenarios.clear()
             return finish('invalid')
         if any(item.scenario.assignments == assignments for item in scenarios):
-            event('duplicate', 'Приоритеты дали одинаковые назначения; повторный вариант скрыт.')
+            event('duplicate', 'Both objectives produced identical assignments; the duplicate option is hidden.')
             continue
         scenarios.append(CalculatedScenario(scenario=scenario, priority=priority, search_status=status,
             validation=validation, metrics=metrics, evidence=evidence))
-        event('validated', 'Независимая проверка: 7/7; вариант ' + scenario.label + '.')
+        event('validated', 'Independent validation: 7/7; option ' + scenario.label + '.')
     if not scenarios:
-        issues.append(SolveIssue(code='search_limit', message='Лимит поиска исчерпан без результата. Невозможность не доказана.'))
+        issues.append(SolveIssue(code='search_limit', message='Search time limit reached without a result. Infeasibility was not proven.'))
     return finish('solutions' if scenarios else 'limit')

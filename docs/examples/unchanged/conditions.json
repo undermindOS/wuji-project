@@ -6,28 +6,28 @@
   "task": {
     "id": "demo-task-unchanged-v1",
     "sourceVersionId": "demo-source-unchanged-v1",
-    "request": "Проверь исходную неделю. Все сотрудники доступны в своих сменах, перестановки не нужны.",
+    "request": "Check the original week. All employees are available for their shifts; no reassignments are needed.",
     "absence": null,
     "rules": [
       {
         "id": "availability",
-        "label": "Подтверждённая доступность",
-        "detail": "Учитывать отсутствие и доступность для каждой смены."
+        "label": "Confirmed availability",
+        "detail": "Respect absence and availability for each shift."
       },
       {
         "id": "pinned",
-        "label": "Закреплённые назначения",
-        "detail": "Смены с отметкой «Закреплено» сохраняют своего сотрудника."
+        "label": "Pinned assignments",
+        "detail": "Shifts marked “Pinned” keep their assigned employee."
       },
       {
         "id": "hours",
-        "label": "Личные лимиты часов",
-        "detail": "У Дениса — 8 ч в неделю; у остальных — лимит из карточки сотрудника."
+        "label": "Individual hour limits",
+        "detail": "Denis has an 8-hour weekly limit; other limits come from employee profiles."
       },
       {
         "id": "coverage",
-        "label": "Покрытие и квалификация",
-        "detail": "Все 14 смен закрыты специалистом нужной роли, без пересечений."
+        "label": "Coverage and qualifications",
+        "detail": "All 14 shifts must be covered by a qualified employee, without overlaps."
       }
     ]
   }

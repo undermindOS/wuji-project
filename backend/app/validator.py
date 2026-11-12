@@ -41,9 +41,9 @@ def evaluate(source: SourceVersion, task: TaskSpec, scenario: Scenario):
         bad_refs.append('absence-reference')
     if any(sid not in shifts or eid not in employees for sid, eid in task.fixed_assignments.items()):
         bad_refs.append('fixed-reference')
-    check('references', 'Версии и записи', bad_refs, 'Проверены версии исходника, условий и все ID.')
+    check('references', 'Versions and records', bad_refs, 'Source and constraint versions and all IDs were checked.')
     uncovered = [s.id for s in source.shifts if scenario.assignments.get(s.id) not in employees]
-    check('coverage', 'Покрытие смен', uncovered, 'Каждая исходная смена должна иметь одно назначение.')
+    check('coverage', 'Shift coverage', uncovered, 'Each source shift must have one assignment.')
     unavailable, unknown, wrong_roles, changed_pins = [], [], [], []
     totals = {eid: 0 for eid in employees}
     assigned = {eid: [] for eid in employees}
@@ -97,11 +97,11 @@ def evaluate(source: SourceVersion, task: TaskSpec, scenario: Scenario):
                 cost_delta_minor=new_cost - old_cost if new_cost is not None and old_cost is not None else None,
                 source_refs=[r for r in refs if r is not None], rule_ids=[r.id for r in task.rules],
                 check_ids=['references','coverage','availability','roles','pinned','hours','overlap'], task_spec_id=task.id))
-    check('availability', 'Доступность', unavailable, 'Неизвестная доступность не считается разрешением.', unknown)
-    check('roles', 'Роли сотрудников', wrong_roles, 'Роль назначенного сотрудника должна подходить для смены.')
-    check('pinned', 'Закреплённые смены', changed_pins, 'Исходные закреплённые назначения сохраняются.')
+    check('availability', 'Availability', unavailable, 'Unknown availability is not treated as permission to assign.', unknown)
+    check('roles', 'Employee roles', wrong_roles, 'The assigned employee’s role must match the shift.')
+    check('pinned', 'Pinned shifts', changed_pins, 'Original pinned assignments are preserved.')
     over = [s.id for eid, items in assigned.items() if totals[eid] > employees[eid].max_weekly_minutes for s in items]
-    check('hours', 'Лимиты часов', over, 'Недельные минуты независимо суммированы по каждому сотруднику.')
+    check('hours', 'Hour limits', over, 'Weekly minutes were independently summed for each employee.')
     overlaps = set()
     for items in assigned.values():
         ordered = sorted(items, key=lambda s: datetime.fromisoformat(s.starts_at).timestamp())
@@ -113,7 +113,7 @@ def evaluate(source: SourceVersion, task: TaskSpec, scenario: Scenario):
                 overlaps.add(s.id)
                 overlaps.update(other.id for other in active)
             active.append(s)
-    check('overlap', 'Пересечения', overlaps, 'Проверены фактические интервалы UTC; соприкасающиеся смены разрешены.')
+    check('overlap', 'Overlaps', overlaps, 'Actual UTC intervals were checked; adjacent shifts are allowed.')
     status = 'fail' if any(c.status == 'fail' for c in checks) else 'unknown' if unknown else 'pass'
     metrics = ScenarioMetrics(changes=changes, affected_employee_ids=sorted({eid for c in changes for eid in (c.before_employee_id, c.after_employee_id)}),
         covered_shifts=len(source.shifts) - len(uncovered), total_shifts=len(source.shifts),

@@ -2,31 +2,32 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import BrandMark from '../components/BrandMark';
 import ScanlineOverlay from '../components/ScanlineOverlay';
-import PaneDivider from '../features/workspace/components/PaneDivider';
-import type { PanelWidths } from '../features/workspace/components/PaneDivider';
+import Guide from '../features/csr/components/Guide';
 import SchedulePane from '../features/csr/components/SchedulePane';
+import type { ClockMode } from '../features/csr/components/SchedulePane';
 import TeamPane from '../features/csr/components/TeamPane';
 import WeekPane from '../features/csr/components/WeekPane';
+import WeekPicker from '../features/csr/components/WeekPicker';
+import { schedulePdf } from '../features/csr/components/schedulePdf.ts';
 import { addOperator, applyBuild, openWeek, removeOperator, setRequest, setTarget, updateOperator } from '../features/csr/model/actions.ts';
 import type { BuildResult } from '../features/csr/model/build.ts';
 import { checkWeek, dayCounts, workloads } from '../features/csr/model/check.ts';
 import { defaultState, weekInput } from '../features/csr/model/defaults.ts';
 import { toCsv, toHtml, toTsv } from '../features/csr/model/export.ts';
 import { STORAGE_KEY, parseState, serializeState } from '../features/csr/model/storage.ts';
-import { dateLabel, weekDates } from '../features/csr/model/time.ts';
 import type { CellRef, CsrState, WeekInput } from '../features/csr/model/types.ts';
 import { useBuild } from '../features/csr/solver/useBuild.ts';
 import '../features/workspace/workspace.css';
 import '../features/csr/csr.css';
 
-type PaneId = 'team' | 'week' | 'schedule';
+type View = 'team' | 'week' | 'schedule';
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
-const panes: { id: PaneId; number: string; label: string }[] = [
+const GUIDE_KEY = 'wuji.csr.guide.v1';
+const views: { id: View; number: string; label: string }[] = [
   { id: 'team', number: '01', label: 'Team' },
-  { id: 'week', number: '02', label: 'Week' },
+  { id: 'week', number: '02', label: 'Targets' },
   { id: 'schedule', number: '03', label: 'Schedule' },
 ];
-const WIDTHS: PanelWidths = [26, 24, 50];
 
 // Saved data that cannot be read is set aside under a second key, never overwritten or dropped.
 function loadState(): { state: CsrState; notice: Notice } {
@@ -42,8 +43,12 @@ function loadState(): { state: CsrState; notice: Notice } {
   }
 }
 
-function download(filename: string, type: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+function guideSeen(): boolean {
+  try { return window.localStorage.getItem(GUIDE_KEY) !== null; } catch { return false; }
+}
+
+function download(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url; link.download = filename;
   document.body.appendChild(link); link.click(); link.remove();
@@ -58,9 +63,12 @@ export default function CsrWorkspace() {
   const [selected, setSelected] = useState<CellRef | null>(null);
   const [focusCheckId, setFocusCheckId] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [activePane, setActivePane] = useState<PaneId>('schedule');
-  const [widths, setWidths] = useState<PanelWidths>(WIDTHS);
+  const [clockMode, setClockMode] = useState<ClockMode>('department');
+  const [setupView, setSetupView] = useState<'team' | 'week'>('team');
+  const [mobileView, setMobileView] = useState<View>('schedule');
+  const [guideOpen, setGuideOpen] = useState(() => !guideSeen());
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -77,16 +85,22 @@ export default function CsrWorkspace() {
   const checks = useMemo(() => week.plan ? checkWeek(input, week.plan) : [], [input, week.plan]);
   const loads = useMemo(() => workloads(input, week.plan ?? {}), [input, week.plan]);
   const counts = useMemo(() => dayCounts(week.plan ?? {}, state.operators), [week.plan, state.operators]);
-  const dates = weekDates(state.weekStart);
+  const builtWeeks = useMemo(() => Object.entries(state.weeks).filter(([, item]) => item.plan).map(([start]) => start), [state.weeks]);
   const change = (next: (current: CsrState) => CsrState) => { setState(next); setExportNotice(null); };
   const onResult = useCallback((builtFrom: WeekInput, result: BuildResult) => {
     setState(current => applyBuild(current, builtFrom.weekStart, result, builtFrom));
-    setFocusCheckId(null); setActivePane('schedule');
+    setFocusCheckId(null); setMobileView('schedule');
   }, []);
   const build = useBuild(onResult);
+  const closeGuide = useCallback(() => {
+    setGuideOpen(false);
+    try { window.localStorage.setItem(GUIDE_KEY, 'seen'); } catch { /* the guide simply opens again next time */ }
+  }, []);
 
+  const showSetup = (view: 'team' | 'week') => { setSetupView(view); setMobileView(view); };
+  const openWeekAt = (weekStart: string) => { build.cancel(); setSelected(null); setFocusCheckId(null); change(current => openWeek(current, weekStart)); };
   const exportFile = () => {
-    download(`wuji-operators-${state.weekStart}.json`, 'application/json', serializeState(state));
+    download(`operators-team-and-weeks-${state.weekStart}.json`, new Blob([serializeState(state)], { type: 'application/json' }));
     setNotice({ tone: 'ok', text: 'Saved the team and every week to a file. A colleague opens it with “Load from file”.' });
   };
   const importFile = async (file: File) => {
@@ -96,10 +110,20 @@ export default function CsrWorkspace() {
     build.cancel(); setState(parsed.state); setSelected(null); setFocusCheckId(null);
     setNotice({ tone: 'ok', text: `Loaded ${parsed.state.operators.length} operators and ${Object.keys(parsed.state.weeks).length} week(s) from ${file.name}.` });
   };
+  const pdf = async () => {
+    if (!week.plan || exportingPdf) return;
+    setExportingPdf(true); setExportNotice(null);
+    try {
+      download(`operators-schedule-${state.weekStart}.pdf`, await schedulePdf(input, week.plan, clockMode));
+      setExportNotice(`The PDF was saved with ${clockMode === 'local' ? 'each operator’s local hours' : 'Pacific hours'}. It is ready to drop into a chat.`);
+    } catch (error) {
+      setExportNotice(`The PDF could not be made: ${error instanceof Error ? error.message : 'unknown error'}`);
+    } finally { setExportingPdf(false); }
+  };
   const copy = async () => {
     if (!week.plan) return;
     const html = toHtml(state.weekStart, state.operators, week.plan), text = toTsv(state.weekStart, state.operators, week.plan);
-    const done = () => setExportNotice('Copied. Select the top-left cell in the sheet and paste.');
+    const done = () => setExportNotice('Copied in the team sheet’s own layout. Select the top-left cell in the sheet and paste.');
     try {
       if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) throw new Error('no async clipboard');
       await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]);
@@ -119,54 +143,58 @@ export default function CsrWorkspace() {
     }
   };
   const reset = () => {
-    build.cancel(); setState(defaultState()); setSelected(null); setFocusCheckId(null); setConfirmReset(false); setWidths(WIDTHS);
+    build.cancel(); setState(defaultState()); setSelected(null); setFocusCheckId(null); setConfirmReset(false);
     setNotice({ tone: 'ok', text: 'Back to the team’s sample week and default settings.' });
   };
 
   return (
     <div className="workspace csr">
       <ScanlineOverlay />
-      <a className="ws-skip" href="#workspace-schedule" onClick={() => setActivePane('schedule')}>Skip to schedule</a>
+      <a className="ws-skip" href="#workspace-schedule" onClick={() => setMobileView('schedule')}>Skip to schedule</a>
       <header className="ws-header">
         <Link to="/" aria-label="WUJI — home" className="ws-brand"><BrandMark /></Link>
-        <span className="ws-header-label">SCHEDULE_BUILDER <span aria-hidden="true">/</span> CSR</span>
-        <div className="ws-header-actions"><span className="ws-demo-badge">OPERATORS</span><Link to="/" className="ws-home-link">HOME ↗</Link></div>
+        <span className="ws-header-label">SCHEDULE BUILDER <span aria-hidden="true">/</span> OPERATORS</span>
+        <div className="ws-header-actions"><button type="button" className="csr-guide-open" onClick={() => setGuideOpen(true)}>HOW IT WORKS ?</button><Link to="/" className="ws-home-link">HOME ↗</Link></div>
       </header>
-      <div className="ws-project-heading">
-        <div><p className="ws-kicker"><span className="ws-green">WU</span><span className="ws-red">JI</span> // OPERATORS DIVISION</p><h1 className="font-display">BUILD THE WEEK<span className="ws-orange">_</span></h1><p className="ws-project-subtitle">Team. Rules. A week that holds.</p></div>
-        <div className="ws-project-meta">
-          <div><span>WEEK</span><strong>{dateLabel(dates[0])} — {dateLabel(dates[6])}, {state.weekStart.slice(0, 4)}</strong></div>
-          <div className="ws-timezone-meta"><span>DEPARTMENT TIME</span><strong>Pacific · 6 AM–8 PM</strong></div>
+      <div className="csr-top">
+        <div className="csr-title"><p className="ws-kicker"><span className="ws-green">WU</span><span className="ws-red">JI</span> // OPERATORS DIVISION<span className="csr-title-hours"> · PACIFIC TIME, 6 AM – 8 PM</span></p><h1 className="font-display">BUILD THE WEEK<span className="ws-orange">_</span></h1></div>
+        <div className="csr-toolbar">
+          <WeekPicker weekStart={state.weekStart} builtWeeks={builtWeeks} onOpenWeek={openWeekAt} />
+          {build.busy
+            ? <button type="button" className="ws-outline csr-build" onClick={build.cancel}><span>Building…</span><span>Cancel ×</span></button>
+            : <button type="button" className="ws-primary csr-build" onClick={() => { setExportNotice(null); build.start(input); }}><span>{week.plan ? 'Rebuild the week' : 'Build the week'}</span><span aria-hidden="true">→</span></button>}
           {confirmReset
-            ? <span className="csr-reset-confirm"><button type="button" className="ws-reset" onClick={reset}>ERASE AND RESET</button><button type="button" className="ws-reset" onClick={() => setConfirmReset(false)}>KEEP</button></span>
-            : <button type="button" className="ws-reset" onClick={() => setConfirmReset(true)}>RESET ↺</button>}
+            ? <span className="csr-reset-confirm"><button type="button" className="ws-reset" onClick={reset}>Erase everything</button><button type="button" className="ws-reset" onClick={() => setConfirmReset(false)}>Keep</button></span>
+            : <button type="button" className="ws-reset" onClick={() => setConfirmReset(true)}>Reset ↺</button>}
         </div>
       </div>
-      <nav className="ws-mobile-tabs" aria-label="Schedule builder panels">{panes.map(pane => <button type="button" key={pane.id} onClick={() => setActivePane(pane.id)} aria-pressed={activePane === pane.id} aria-controls={`workspace-${pane.id}`}><span>{pane.number}</span> {pane.label}</button>)}</nav>
-      <main className="ws-panels" style={{ gridTemplateColumns: `${widths[0]}fr 9px ${widths[1]}fr 9px ${widths[2]}fr` }} aria-label="Schedule builder">
-        <section id="workspace-team" className="ws-pane ws-source-pane" aria-labelledby="team-heading" data-active={activePane === 'team'}>
-          <TeamPane operators={state.operators} weekStart={state.weekStart} notice={notice}
-            onUpdate={(id, patch) => change(current => updateOperator(current, id, patch))} onAdd={() => change(addOperator)}
-            onRemove={id => { if (selected?.operatorId === id) setSelected(null); change(current => removeOperator(current, id)); }}
-            onExport={exportFile} onImport={file => void importFile(file)} />
+      <nav className="ws-mobile-tabs" aria-label="Schedule builder panels">{views.map(view => <button type="button" key={view.id} onClick={() => { setMobileView(view.id); if (view.id !== 'schedule') setSetupView(view.id); }} aria-pressed={mobileView === view.id}><span>{view.number}</span> {view.label}</button>)}</nav>
+      <main className="ws-panels" aria-label="Schedule builder">
+        <section id="workspace-setup" className="ws-pane ws-source-pane" aria-labelledby="setup-heading" data-active={mobileView !== 'schedule'}>
+          <div className="ws-pane-heading"><span className="ws-kicker ws-green">01 // SETUP</span><div><h2 id="setup-heading">{setupView === 'team' ? 'Operators and their sides' : 'Day targets and rules'}</h2><span className="ws-version">{state.operators.length} PEOPLE</span></div></div>
+          <div className="ws-segmented csr-setup-switch" aria-label="Setup section">
+            <button type="button" onClick={() => showSetup('team')} aria-pressed={setupView === 'team'}>Team</button>
+            <button type="button" onClick={() => showSetup('week')} aria-pressed={setupView === 'week'}>Day targets and rules</button>
+          </div>
+          <div className="ws-pane-scroll">
+            {setupView === 'team'
+              ? <TeamPane operators={state.operators} weekStart={state.weekStart} notice={notice}
+                  onUpdate={(id, patch) => change(current => updateOperator(current, id, patch))} onAdd={() => change(addOperator)}
+                  onRemove={id => { if (selected?.operatorId === id) setSelected(null); change(current => removeOperator(current, id)); }}
+                  onExport={exportFile} onImport={file => void importFile(file)} />
+              : <WeekPane weekStart={state.weekStart} targets={week.targets} teamSize={state.operators.length} onTarget={(day, field, value) => change(current => setTarget(current, day, field, value))} />}
+          </div>
         </section>
-        <PaneDivider index={0} widths={widths} setWidths={setWidths} />
-        <section id="workspace-week" className="ws-pane ws-task-pane" aria-labelledby="week-heading" data-active={activePane === 'week'} tabIndex={-1}>
-          <WeekPane weekStart={state.weekStart} savedWeeks={Object.keys(state.weeks)} targets={week.targets} teamSize={state.operators.length} hasPlan={!!week.plan} planStatus={week.planStatus} checks={checks}
-            focusCheckId={focusCheckId} building={build.busy} buildError={build.error}
-            onOpenWeek={weekStart => { build.cancel(); setSelected(null); setFocusCheckId(null); change(current => openWeek(current, weekStart)); }}
-            onTarget={(day, field, value) => change(current => setTarget(current, day, field, value))}
-            onBuild={() => build.start(input)} onCancel={build.cancel}
-            onFocusCheck={id => { setFocusCheckId(id); if (id) setActivePane('schedule'); }} />
-        </section>
-        <PaneDivider index={1} widths={widths} setWidths={setWidths} />
-        <section id="workspace-schedule" className="ws-pane ws-scenario-pane" aria-labelledby="schedule-heading" data-active={activePane === 'schedule'} tabIndex={-1}>
-          <SchedulePane input={input} plan={week.plan} planStatus={week.planStatus} checks={checks} loads={loads} counts={counts} selected={selected} focusCheckId={focusCheckId} exportNotice={exportNotice}
-            onSelect={setSelected} onRequest={(operatorId, day, request) => change(current => setRequest(current, operatorId, day, request))} onClearFocus={() => setFocusCheckId(null)}
-            onCopy={() => void copy()} onDownload={() => { if (week.plan) { download(`operators-schedule-${state.weekStart}.csv`, 'text/csv;charset=utf-8', toCsv(state.weekStart, state.operators, week.plan)); setExportNotice('The CSV was saved. In Google Sheets: File → Import.'); } }} />
+        <section id="workspace-schedule" className="ws-pane ws-scenario-pane" aria-labelledby="schedule-heading" data-active={mobileView === 'schedule'} tabIndex={-1}>
+          <SchedulePane input={input} plan={week.plan} planStatus={week.planStatus} checks={checks} loads={loads} counts={counts} selected={selected} focusCheckId={focusCheckId}
+            clockMode={clockMode} building={build.busy} buildError={build.error} exportNotice={exportNotice} exportingPdf={exportingPdf}
+            onSelect={setSelected} onRequest={(operatorId, day, request) => change(current => setRequest(current, operatorId, day, request))} onFocusCheck={setFocusCheckId} onClockMode={setClockMode}
+            onPdf={() => void pdf()} onCopy={() => void copy()}
+            onDownload={() => { if (week.plan) { download(`operators-schedule-${state.weekStart}.csv`, new Blob([toCsv(state.weekStart, state.operators, week.plan)], { type: 'text/csv;charset=utf-8' })); setExportNotice('The CSV was saved in the team sheet’s own layout. In Google Sheets: File → Import.'); } }} />
         </section>
       </main>
       <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {saved ? 'SAVED IN THIS BROWSER' : 'NOT SAVED — USE “SAVE TO FILE”'} <span className="ws-footer-divider">/</span> <span>NO SERVER</span></span><span><Link to="/workspace/repair" className="csr-footer-link">SCHEDULE REPAIR DEMO ↗</Link></span></footer>
+      {guideOpen && <Guide onClose={closeGuide} />}
     </div>
   );
 }

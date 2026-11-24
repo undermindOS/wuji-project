@@ -7,7 +7,8 @@ import { checkWeek, dayCounts, isShift, lunchless, overall, workloads } from '..
 import { TEMPLATES, defaultState, emptyRequests, weekInput } from '../src/features/csr/model/defaults.ts';
 import { toCsv, toHtml } from '../src/features/csr/model/export.ts';
 import { parseState, serializeState } from '../src/features/csr/model/storage.ts';
-import { clock, instantOf, isMonday, localRange, mondayOf, offsetLabel, weekDates } from '../src/features/csr/model/time.ts';
+import { deflate, imagePdf, rgbFromRgba } from '../src/features/csr/model/pdf.ts';
+import { clock, departmentToday, instantOf, isMonday, localRange, localShift, mondayOf, monthWeeks, offsetLabel, shortDate, weekDates, weekRange } from '../src/features/csr/model/time.ts';
 import type { Cell, Plan, WeekInput } from '../src/features/csr/model/types.ts';
 
 const solver = await highsLoader() as unknown as LpSolver;
@@ -34,7 +35,7 @@ test('an n/v+v operator covers both lines; a voice-only operator does not cover 
   plan.rachel[5] = { templateId: 'e0600', kind: 'v' };
   const nonvoice = status(input, plan, 'coverage-nonvoice');
   assert.equal(nonvoice.status, 'fail');
-  assert.match(nonvoice.detail, /Sa 6 AM–11:30 AM/);
+  assert.match(nonvoice.detail, /Sat 6 AM–11:30 AM/);
 });
 
 test('lunch needs a slot inside the shift where both lines stay covered without the operator', () => {
@@ -49,7 +50,7 @@ test('lunch needs a slot inside the shift where both lines stay covered without 
   assert.deepEqual(lunchless(plan, input.operators, 0), ['rachel']);
   plan.sofia[0] = { templateId: 'e0600', kind: 'nv' };
   assert.deepEqual(lunchless(plan, input.operators, 0), []);
-  assert.match(status(input, { ...plan, sofia: off() }, 'lunch').detail, /Rachel Mo/);
+  assert.match(status(input, { ...plan, sofia: off() }, 'lunch').detail, /Rachel Mon/);
 });
 
 test('norm, strengths, short shifts and requests are checked against the team settings', () => {
@@ -64,16 +65,16 @@ test('norm, strengths, short shifts and requests are checked against the team se
   assert.equal(checks.norm.status, 'warn');
   assert.match(checks.norm.detail, /Lola 6\/5/);
   assert.equal(checks.strengths.status, 'fail');
-  assert.match(checks.strengths.detail, /Kate Mo \(early\)/);
+  assert.match(checks.strengths.detail, /Kate Mon \(early shifts\)/);
   assert.equal(checks.short.status, 'fail');
   assert.match(checks.short.detail, /Sam 3\/2/);
   assert.equal(checks.requests.status, 'fail');
-  assert.match(checks.requests.detail, /May Mo \(day off\)/);
-  assert.match(checks.requests.detail, /Amy Mo \(pinned shift\)/);
+  assert.match(checks.requests.detail, /May Mon \(day off\)/);
+  assert.match(checks.requests.detail, /Amy Mon \(pinned shift\)/);
   assert.equal(overall(Object.values(checks)), 'fail');
   input.operators.find(operator => operator.id === 'kate')!.bands.early = 'normal';
   assert.equal(status(input, plan, 'strengths').status, 'warn');
-  assert.match(status(input, plan, 'strengths').detail, /Logan Mo \(n\/v\+v\)/);
+  assert.match(status(input, plan, 'strengths').detail, /Logan Mon \(non-voice\)/);
 });
 
 test('the solver builds a week from scratch that the independent checks accept', () => {
@@ -109,7 +110,7 @@ test('when no week can satisfy the rules, the solver says so and returns the clo
   assert.ok(result.relaxed.coverage > 0);
   const plan = result.plan!;
   assert.deepEqual(plan.kate[5], { templateId: 'e0600', kind: 'nv' });
-  assert.match(status(input, plan, 'coverage-nonvoice').detail, /Sa 2:30 PM–8 PM/);
+  assert.match(status(input, plan, 'coverage-nonvoice').detail, /Sat 2:30 PM–8 PM/);
   assert.equal(status(input, plan, 'coverage-voice').status, 'fail');
   assert.equal(status(input, plan, 'lunch').status, 'fail');
   // The rest of the week is untouched by the impossible Saturday.
@@ -121,7 +122,7 @@ test('when no week can satisfy the rules, the solver says so and returns the clo
 test('shift hours are shown on each operator’s own clock', () => {
   const late = TEMPLATES.find(template => template.id === 'l1130')!;
   const early = TEMPLATES.find(template => template.id === 'e0600')!;
-  assert.equal(localRange('2026-11-23', late, 'Etc/GMT-5'), '00:30 +1–09:00 +1');
+  assert.equal(localRange('2026-11-23', late, 'Etc/GMT-5'), '00:30–09:00 +1');
   assert.equal(localRange('2026-11-23', early, 'Etc/GMT+6'), '08:00–16:30');
   // Europe is back on winter time a week before the US in autumn, and a week later in spring.
   assert.equal(localRange('2026-10-26', early, 'CET'), '14:00–22:30');
@@ -160,4 +161,47 @@ test('the export keeps the team’s two-line cells and never emits a formula', (
   assert.ok(csv.includes('\'=SUM(A1),"2-8\nn/v+v","8-4.30\nn/v+v","2-8\nv","2-8\nv",off,off,"8-4.30\nn/v+v"'));
   assert.ok(csv.includes('Rachel,vacation,off,"6-2.30\nn/v+v"'));
   assert.ok(toHtml(input.weekStart, [{ ...input.operators[0], nick: '<b>' }], plan).includes('<td>&lt;b&gt;</td><td>2-8<br>n/v+v</td>'));
+});
+
+test('the calendar lists whole weeks, Monday first, and names them without abbreviations of the year', () => {
+  assert.deepEqual(monthWeeks(2026, 11), ['2026-10-26', '2026-11-02', '2026-11-09', '2026-11-16', '2026-11-23', '2026-11-30']);
+  assert.deepEqual(monthWeeks(2026, 12), ['2026-11-30', '2026-12-07', '2026-12-14', '2026-12-21', '2026-12-28']);
+  // February 2027 starts on a Monday and fits four rows exactly.
+  assert.deepEqual(monthWeeks(2027, 2), ['2027-02-01', '2027-02-08', '2027-02-15', '2027-02-22']);
+  assert.equal(weekRange('2026-11-23'), 'Nov 23 – Nov 29, 2026');
+  assert.equal(weekRange('2026-12-28'), 'Dec 28, 2026 – Jan 3, 2027');
+  assert.equal(shortDate('2026-03-01'), 'Mar 1');
+  // 05:00 UTC on Nov 24 is still the evening of Nov 23 in the department.
+  assert.equal(departmentToday(Date.UTC(2026, 10, 24, 5, 0)), '2026-11-23');
+  assert.equal(departmentToday(Date.UTC(2026, 10, 24, 9, 0)), '2026-11-24');
+  const late = TEMPLATES.find(template => template.id === 'l1130')!;
+  assert.deepEqual(localShift('2026-11-23', late, 'Etc/GMT-5'), { range: '00:30–09:00', dayShift: 1 });
+  assert.deepEqual(localShift('2026-11-23', late, 'EET'), { range: '21:30–06:00', dayShift: 0 });
+});
+
+test('the PDF is one page holding one picture, and says nothing about where it was made', async () => {
+  const width = 4, height = 2;
+  const rgba = new Uint8Array(width * height * 4).map((_, index) => index % 4 === 3 ? 255 : index * 7 % 256);
+  const rgb = rgbFromRgba(rgba);
+  assert.deepEqual([rgb.length, rgb[0], rgb[1], rgb[2], rgb[3]], [width * height * 3, rgba[0], rgba[1], rgba[2], rgba[4]]);
+  const data = await deflate(rgb);
+  const restored = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());
+  assert.deepEqual(restored, rgb);
+  const file = imagePdf({ data, filter: 'FlateDecode', width, height, pageWidth: 300, pageHeight: 150, title: 'Operators (Division) schedule, Nov 23 – Nov 29, 2026' });
+  const text = new TextDecoder('latin1').decode(file);
+  assert.ok(text.startsWith('%PDF-1.4\n'));
+  assert.ok(text.endsWith('%%EOF\n'));
+  assert.ok(text.includes('/Title (Operators \\(Division\\) schedule, Nov 23 - Nov 29, 2026)'));
+  assert.ok(text.includes(`/Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${data.length}`));
+  assert.ok(text.includes('/MediaBox [0 0 300.00 150.00]'));
+  assert.doesNotMatch(text, /wuji|producer|creator|creationdate|http/i);
+  // Every cross-reference entry points at the object it names.
+  const xref = Number(text.match(/startxref\n(\d+)\n%%EOF/)![1]);
+  assert.ok(text.slice(xref).startsWith('xref\n0 7\n0000000000 65535 f \n'));
+  const offsets = [...text.slice(xref).matchAll(/(\d{10}) 00000 n /g)].map(match => Number(match[1]));
+  assert.equal(offsets.length, 6);
+  offsets.forEach((offset, index) => assert.ok(text.slice(offset).startsWith(`${index + 1} 0 obj\n`)));
+  // The image stream is the compressed bytes, untouched.
+  const stream = text.indexOf('stream\n', offsets[3]) + 7;
+  assert.deepEqual(file.slice(stream, stream + data.length), data);
 });

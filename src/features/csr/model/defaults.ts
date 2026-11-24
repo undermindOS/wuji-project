@@ -6,7 +6,9 @@ export const CLOSE = 20 * 60;
 export const SLOT = 30;
 /** Lunch is not taken in the first or the last hour of a shift. */
 export const LUNCH_MARGIN = 60;
+/** Two-letter days, as the team writes them in its sheet; used in exports only. */
 export const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'] as const;
+export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 export const TEMPLATES: ShiftTemplate[] = [
   { id: 'e0600', label: '6-2.30', start: 6 * 60, end: 14 * 60 + 30, band: 'early', lunch: true },
@@ -18,7 +20,10 @@ export const TEMPLATES: ShiftTemplate[] = [
 
 export const templateById = (id: string): ShiftTemplate | undefined => TEMPLATES.find(template => template.id === id);
 export const paidMinutes = (template: ShiftTemplate): number => template.end - template.start - (template.lunch ? 30 : 0);
+/** The team's own notation, for exports into its sheet. */
 export const kindLabel = (kind: ShiftKind): string => kind === 'v' ? 'v' : 'n/v+v';
+/** The same in words, for the screen and the PDF. */
+export const kindName = (kind: ShiftKind): string => kind === 'v' ? 'Voice' : 'Non-voice';
 
 // Work nicknames only. Zones are generic (no city): fixed offsets, or CET/EET where clocks change.
 // `usual` is the band each operator worked in the sample week; it seeds the time-of-day ratings.

@@ -10,7 +10,7 @@
 - Tailwind CSS 3 (+ tailwindcss-animate)
 - GSAP 3.15 + ScrollTrigger — анимации секций
 - Lenis — плавный скролл
-- react-router-dom — маршруты `/`, `/workspace` и `/workspace/repair`
+- react-router-dom — маршруты `/`, `/workspace`, `/workspace/repair` и `/fs_csr_schedule`
 
 ## Запуск
 
@@ -23,7 +23,7 @@ npm run dev
 
 ## Рабочее пространство WUJI
 
-На `/workspace` находится сборщик недели для отдела операторов: команда с
+На `/fs_csr_schedule` и на `/workspace` находится сборщик недели для отдела операторов: команда с
 редактируемыми сильными и слабыми сторонами, правила отдела, расписание и
 проверки. Неделю собирает solver прямо в браузере, сервер не нужен. Вход —
 `WORKSPACE ↗` в навигации. Подробности: `docs/CSR_SCHEDULE.md`.

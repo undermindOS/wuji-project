@@ -1,14 +1,26 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import Home from './pages/Home';
 
 const Workspace = lazy(() => import('./pages/Workspace'));
+const CsrWorkspace = lazy(() => import('./pages/CsrWorkspace'));
+
+// /workspace is the operators' schedule builder. Links to a saved project keep opening the repair workspace.
+function WorkspaceEntry() {
+  const [searchParams] = useSearchParams();
+  return searchParams.has('project') ? <Workspace /> : <CsrWorkspace />;
+}
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/workspace" element={
+        <Suspense fallback={<div role="status" className="font-data text-phosphor p-8">Loading workspace…</div>}>
+          <WorkspaceEntry />
+        </Suspense>
+      } />
+      <Route path="/workspace/repair" element={
         <Suspense fallback={<div role="status" className="font-data text-phosphor p-8">Loading workspace…</div>}>
           <Workspace />
         </Suspense>

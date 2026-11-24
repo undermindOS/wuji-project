@@ -20,6 +20,11 @@ function App() {
           <WorkspaceEntry />
         </Suspense>
       } />
+      <Route path="/fs_csr_schedule" element={
+        <Suspense fallback={<div role="status" className="font-data text-phosphor p-8">Loading schedule…</div>}>
+          <CsrWorkspace />
+        </Suspense>
+      } />
       <Route path="/workspace/repair" element={
         <Suspense fallback={<div role="status" className="font-data text-phosphor p-8">Loading workspace…</div>}>
           <Workspace />

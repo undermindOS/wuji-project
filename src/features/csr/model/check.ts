@@ -1,4 +1,4 @@
-import { CLOSE, DAYS, LUNCH_MARGIN, OPEN, SLOT, TEMPLATES, kindLabel, paidMinutes, templateById } from './defaults.ts';
+import { CLOSE, DAY_NAMES, LUNCH_MARGIN, OPEN, SLOT, TEMPLATES, kindName, paidMinutes, templateById } from './defaults.ts';
 import { clock } from './time.ts';
 import type { Assignment, Cell, CellRef, Check, CheckStatus, Line, Load, Operator, Plan, Request, WeekInput } from './types.ts';
 
@@ -82,13 +82,13 @@ export function checkWeek(input: WeekInput, plan: Plan): Check[] {
   for (const [line, name, verb] of [['voice', 'Voice line', 'takes calls'], ['nonvoice', 'Non-voice line', 'works the non-voice channels']] as const) {
     const found = gaps(plan, operators, line);
     add(`coverage-${line}`, `${name} covered 6 AM–8 PM`, found.length ? 'fail' : 'pass',
-      found.length ? `Nobody ${verb}: ${listed(found.map(gap => `${DAYS[gap.day]} ${clock(gap.from)}–${clock(gap.to)}`))}.` : `At least one operator ${verb} at every moment of all seven days.`,
+      found.length ? `Nobody ${verb}: ${listed(found.map(gap => `${DAY_NAMES[gap.day]} ${clock(gap.from)}–${clock(gap.to)}`))}.` : `At least one operator ${verb} at every moment of all seven days.`,
       [...new Set(found.map(gap => gap.day))].flatMap(day => working(day).map(operator => ({ operatorId: operator.id, day }))));
   }
 
   const noLunch = Array.from({ length: 7 }, (_, day) => lunchless(plan, operators, day).map(operatorId => ({ operatorId, day }))).flat();
   add('lunch', 'Lunch possible on every 8.5-hour shift', noLunch.length ? 'fail' : 'pass',
-    noLunch.length ? `No 30-minute slot where both lines stay covered: ${listed(noLunch.map(ref => `${operators.find(operator => operator.id === ref.operatorId)!.nick} ${DAYS[ref.day]}`))}.`
+    noLunch.length ? `No 30-minute slot where both lines stay covered: ${listed(noLunch.map(ref => `${operators.find(operator => operator.id === ref.operatorId)!.nick} ${DAY_NAMES[ref.day]}`))}.`
       : 'Every operator can take the mandatory lunch, one at a time, while both lines stay covered.', noLunch);
 
   const loads = workloads(input, plan);
@@ -105,7 +105,7 @@ export function checkWeek(input: WeekInput, plan: Plan): Check[] {
       const cell = plan[operator.id]?.[day] ?? 'off';
       const request = requests[operator.id]?.[day] ?? 'auto';
       const ref = { operatorId: operator.id, day };
-      const where = `${operator.nick} ${DAYS[day]}`;
+      const where = `${operator.nick} ${DAY_NAMES[day]}`;
       if (request !== 'auto' && !sameCell(request, cell)) {
         broken.push(ref);
         names.broken.push(`${where} (${isShift(request) ? 'pinned shift' : request === 'off' ? 'day off' : 'vacation'})`);
@@ -115,8 +115,8 @@ export function checkWeek(input: WeekInput, plan: Plan): Check[] {
       if (!template) { unknown.push(ref); names.unknown.push(where); continue; }
       const line = operator.lines[cell.kind === 'v' ? 'voice' : 'nonvoice'];
       const band = operator.bands[template.band];
-      if (line === 'never' || band === 'never') { excluded.push(ref); names.excluded.push(`${where} (${line === 'never' ? kindLabel(cell.kind) : template.band})`); }
-      else if (line === 'weak' || band === 'weak') { weak.push(ref); names.weak.push(`${where} (${line === 'weak' ? kindLabel(cell.kind) : template.band})`); }
+      if (line === 'never' || band === 'never') { excluded.push(ref); names.excluded.push(`${where} (${line === 'never' ? kindName(cell.kind).toLowerCase() : `${template.band} shifts`})`); }
+      else if (line === 'weak' || band === 'weak') { weak.push(ref); names.weak.push(`${where} (${line === 'weak' ? kindName(cell.kind).toLowerCase() : `${template.band} shifts`})`); }
       if (!template.lunch) shortDays.push(day);
     }
     if (shortDays.length > operator.shortShifts) {
@@ -128,7 +128,7 @@ export function checkWeek(input: WeekInput, plan: Plan): Check[] {
     excluded.length ? `Assigned where the operator is marked “never”: ${listed(names.excluded)}.` : unknown.length ? `Unknown shift: ${listed(names.unknown)}.`
       : weak.length ? `Assigned on a weak side: ${listed(names.weak)}.` : 'Nobody works a line or a time of day marked weak or “never”.',
     [...excluded, ...unknown, ...weak]);
-  add('short', 'Short 2-8 shift', noShort.length ? 'fail' : 'pass',
+  add('short', 'Short 2-8 shifts', noShort.length ? 'fail' : 'pass',
     noShort.length ? `More 6-hour shifts than the operator allows: ${listed(names.noShort)}.` : 'Nobody has more 6-hour shifts than their weekly allowance.', noShort);
   add('requests', 'Days off, vacations and pinned shifts', broken.length ? 'fail' : 'pass',
     broken.length ? `The week differs from a request: ${listed(names.broken)}.` : 'Every requested day off, vacation and pinned shift is kept.', broken);

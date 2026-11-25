@@ -35,7 +35,10 @@ async function body(request: Request): Promise<Record<string, unknown> | Respons
 /** HGETALL comes back as a flat [field, value, field, value, …] list. */
 const hashValues = (flat: unknown): unknown[] => Array.isArray(flat) ? flat.filter((_, index) => index % 2 === 1).map(parse).filter(isObject) : [];
 
-export function createApi(kv: Kv | null): { fetch(request: Request): Promise<Response> } {
+/** What kind of storage settings the deployment can see. Yes or no only: never a name, never a value. */
+export interface StorageSeen { restAddress: boolean; restToken: boolean; redisAddress: boolean }
+
+export function createApi(kv: Kv | null, seen?: StorageSeen): { fetch(request: Request): Promise<Response> } {
   const current = async (store: Kv): Promise<Stored> => {
     const saved = parse(await store.command(['GET', STATE]));
     return isObject(saved) && typeof saved.revision === 'number' ? saved as unknown as Stored : { revision: 0, savedAt: '', state: null };
@@ -124,7 +127,7 @@ export function createApi(kv: Kv | null): { fetch(request: Request): Promise<Res
     async fetch(request) {
       const url = new URL(request.url);
       const op = url.searchParams.get('op') ?? '';
-      if (request.method === 'GET' && op === 'health') return json(200, { ok: true, storage: kv !== null });
+      if (request.method === 'GET' && op === 'health') return json(200, { ok: true, storage: kv !== null, ...(seen ? { seen } : {}) });
       const route = routes[`${request.method} ${op}`];
       if (!route) return fail(404, 'not_found', 'Unknown request.');
       if (!kv) return fail(503, 'storage_not_connected', 'Shared storage is not connected yet.');
@@ -156,6 +159,20 @@ export function kvFromEnv(env: Record<string, string | undefined>): Kv | null {
   return null;
 }
 
+/**
+ * Says why storage is or is not found, without revealing anything: whether a REST address, a REST token
+ * and a plain redis:// address are present. A deployment built before the database was connected sees
+ * none of them; a database connected without its REST interface shows only the last one.
+ */
+export function storageSeen(env: Record<string, string | undefined>): StorageSeen {
+  const some = (pattern: RegExp, value: RegExp) => Object.entries(env).some(([name, text]) => pattern.test(name) && !!text && value.test(text));
+  return {
+    restAddress: some(/(UPSTASH_REDIS_REST_|KV_REST_API_)URL$/, /^https:\/\//),
+    restToken: some(/(UPSTASH_REDIS_REST_|KV_REST_API_)TOKEN$/, /./),
+    redisAddress: some(/(^|_)(REDIS_URL|KV_URL)$/, /^rediss?:\/\//),
+  };
+}
+
 /** The same commands kept in memory: used by the local dev server and by the tests, never on the site. */
 export function memoryKv(): Kv {
   const strings = new Map<string, string>(), lists = new Map<string, string[]>(), hashes = new Map<string, Map<string, string>>();
@@ -180,4 +197,4 @@ export function memoryKv(): Kv {
   };
 }
 
-export default { fetch: (request: Request): Promise<Response> => createApi(kvFromEnv(process.env)).fetch(request) };
+export default { fetch: (request: Request): Promise<Response> => createApi(kvFromEnv(process.env), storageSeen(process.env)).fetch(request) };

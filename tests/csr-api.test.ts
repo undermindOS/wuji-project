@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import handler, { createApi, kvFromEnv, memoryKv, upstashKv } from '../api/csr.ts';
+import handler, { createApi, kvFromEnv, memoryKv, storageSeen, upstashKv } from '../api/csr.ts';
 
 const api = () => createApi(memoryKv());
 const call = async (target: { fetch(request: Request): Promise<Response> }, method: string, op: string, body?: unknown) => {
@@ -18,7 +18,7 @@ test('without storage the address answers, says so, and stores nothing', async (
   assert.equal((await call(offline, 'GET', 'nope')).status, 404);
   // No variables on this machine, so the deployed entry point reports the same.
   assert.equal(kvFromEnv({}), null);
-  assert.deepEqual(await (await handler.fetch(new Request('https://example.test/api/csr?op=health'))).json(), { ok: true, storage: kvFromEnv(process.env) !== null });
+  assert.deepEqual(await (await handler.fetch(new Request('https://example.test/api/csr?op=health'))).json(), { ok: true, storage: kvFromEnv(process.env) !== null, seen: storageSeen(process.env) });
 });
 
 test('a save replaces the shared state, keeps every version, and refuses to overwrite a newer one silently', async () => {
@@ -97,3 +97,22 @@ test('the storage adapter speaks the Upstash REST protocol and finds its variabl
   assert.equal(kvFromEnv({ KV_REST_API_URL: 'https://a.example.test' }), null);
   assert.equal(kvFromEnv({ KV_REST_API_URL: 'redis://a.example.test', KV_REST_API_TOKEN: 't' }), null);
 });
+
+test('the health answer says which storage settings are missing, and never what they are', async () => {
+  // A deployment built before the database was connected sees nothing.
+  assert.deepEqual(storageSeen({ NODE_ENV: 'production' }), { restAddress: false, restToken: false, redisAddress: false });
+  // Connected the usual way: everything is there, under any prefix.
+  const full = { STORAGE_KV_REST_API_URL: 'https://db.example.test', STORAGE_KV_REST_API_TOKEN: 'secret-token', STORAGE_KV_REST_API_READ_ONLY_TOKEN: 'read', STORAGE_KV_URL: 'rediss://default:secret@db.example.test:6379', STORAGE_REDIS_URL: 'rediss://default:secret@db.example.test:6379' };
+  assert.deepEqual(storageSeen(full), { restAddress: true, restToken: true, redisAddress: true });
+  assert.ok(kvFromEnv(full));
+  // A database connected without its REST interface cannot be used by this function, and the answer shows why.
+  const plain = { REDIS_URL: 'redis://default:secret@db.example.test:6379' };
+  assert.deepEqual(storageSeen(plain), { restAddress: false, restToken: false, redisAddress: true });
+  assert.equal(kvFromEnv(plain), null);
+  assert.deepEqual(storageSeen({ UPSTASH_REDIS_REST_URL: 'https://db.example.test' }), { restAddress: true, restToken: false, redisAddress: false });
+  const answer = await createApi(null, storageSeen(full)).fetch(new Request('https://example.test/api/csr?op=health'));
+  const text = await answer.text();
+  assert.deepEqual(JSON.parse(text), { ok: true, storage: false, seen: { restAddress: true, restToken: true, redisAddress: true } });
+  assert.doesNotMatch(text, /secret|example\.test|STORAGE|KV_|REDIS/);
+});
+

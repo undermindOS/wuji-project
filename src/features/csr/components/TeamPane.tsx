@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { instantOf, isValidZone, offsetLabel } from '../model/time.ts';
-import type { Band, Line, Operator, Rating } from '../model/types.ts';
+import { instantOf, isValidZone, offsetLabel, weekRange } from '../model/time.ts';
+import type { Band, Line, Operator, Rating, Wish } from '../model/types.ts';
+import { whenLabel, wishLines } from '../model/wishes.ts';
 
 const RATINGS: Rating[] = ['strong', 'normal', 'weak', 'never'];
 const RATING_LABEL: Record<Rating, string> = { strong: 'Strong', normal: 'Normal', weak: 'Weak', never: 'Never' };
@@ -18,6 +19,10 @@ interface TeamPaneProps {
   operators: Operator[];
   weekStart: string;
   notice: { tone: 'ok' | 'error'; text: string } | null;
+  /** Wishes sent through wish links, for every operator. */
+  wishes: Wish[];
+  onRemoveWish: (id: string) => void;
+  onOpenWishes: () => void;
   onUpdate: (id: string, patch: Partial<Operator>) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
@@ -43,7 +48,7 @@ function RatingSelect({ id, label, value, onChange }: { id: string; label: strin
   );
 }
 
-function OperatorCard({ operator, weekStart, canRemove, onUpdate, onRemove }: { operator: Operator; weekStart: string; canRemove: boolean; onUpdate: (patch: Partial<Operator>) => void; onRemove: () => void }) {
+function OperatorCard({ operator, weekStart, canRemove, wishes, onRemoveWish, onUpdate, onRemove }: { operator: Operator; weekStart: string; canRemove: boolean; wishes: Wish[]; onRemoveWish: (id: string) => void; onUpdate: (patch: Partial<Operator>) => void; onRemove: () => void }) {
   const [nick, setNick] = useState(operator.nick);
   const [confirmRemove, setConfirmRemove] = useState(false);
   useEffect(() => { setNick(operator.nick); }, [operator.nick]);
@@ -55,7 +60,7 @@ function OperatorCard({ operator, weekStart, canRemove, onUpdate, onRemove }: { 
       <summary>
         <strong>{operator.nick}</strong>
         <small>{offset} · {operator.shiftsPerWeek} shifts a week{operator.shortShifts ? ` · up to ${operator.shortShifts} short` : ''}</small>
-        <span className="csr-marks">{marks.length ? marks.map(([rating, subject]) => <i key={subject} data-rating={rating}>{RATING_LABEL[rating]}: {subject}</i>) : <i data-rating="normal">No strong or weak sides set</i>}</span>
+        <span className="csr-marks">{marks.length ? marks.map(([rating, subject]) => <i key={subject} data-rating={rating}>{RATING_LABEL[rating]}: {subject}</i>) : <i data-rating="normal">No strong or weak sides set</i>}{wishes.length > 0 && <i data-rating="wish">{wishes.length} wish{wishes.length === 1 ? '' : 'es'}</i>}</span>
       </summary>
       <div className="csr-operator-body">
         <div className="csr-field-row">
@@ -83,6 +88,18 @@ function OperatorCard({ operator, weekStart, canRemove, onUpdate, onRemove }: { 
           {BANDS.map(([band, label]) => <RatingSelect key={band} id={`${band}-${operator.id}`} label={label} value={operator.bands[band]} onChange={rating => onUpdate({ bands: { ...operator.bands, [band]: rating } })} />)}
         </div>
         <p className="csr-hint">Early is 6-2.30. Day is 8-4.30 and 9.30-6. Late is 11.30-8 and the short 2-8.</p>
+        <p className="csr-group">Wishes</p>
+        {wishes.length ? (
+          <ul className="csr-wish-list">
+            {wishes.map(wish => (
+              <li key={wish.id}>
+                <strong>Week of {weekRange(wish.weekStart)}</strong>
+                {wishLines(wish).map(line => <p key={line}>{line}</p>)}
+                <small>{whenLabel(wish.createdAt)} · <button type="button" className="ws-text-button" onClick={() => onRemoveWish(wish.id)}>Remove</button></small>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="csr-hint">{operator.nick} has sent no wishes.</p>}
         {canRemove && (confirmRemove
           ? <p className="csr-confirm">Remove {operator.nick} from the team and from every saved week? <button type="button" className="ws-text-button ws-red" onClick={onRemove}>Remove</button> <button type="button" className="ws-text-button" onClick={() => setConfirmRemove(false)}>Keep</button></p>
           : <button type="button" className="ws-text-button csr-remove" onClick={() => setConfirmRemove(true)}>Remove operator</button>)}
@@ -91,7 +108,7 @@ function OperatorCard({ operator, weekStart, canRemove, onUpdate, onRemove }: { 
   );
 }
 
-export default function TeamPane({ operators, weekStart, notice, onUpdate, onAdd, onRemove, onExport, onImport }: TeamPaneProps) {
+export default function TeamPane({ operators, weekStart, notice, wishes, onRemoveWish, onOpenWishes, onUpdate, onAdd, onRemove, onExport, onImport }: TeamPaneProps) {
   const file = useRef<HTMLInputElement>(null);
   return (
     <>
@@ -99,13 +116,14 @@ export default function TeamPane({ operators, weekStart, notice, onUpdate, onAdd
         <button type="button" onClick={onExport}>Save to file ↓</button>
         <button type="button" onClick={() => file.current?.click()}>Load from file ↑</button>
         <button type="button" onClick={onAdd}>Add operator +</button>
+        <button type="button" onClick={onOpenWishes}>Wish link and wishes</button>
       </div>
       <input ref={file} type="file" accept="application/json,.json" className="ws-sr-only" tabIndex={-1} aria-label="Load team and weeks from a file"
         onChange={event => { const picked = event.target.files?.[0]; if (picked) onImport(picked); event.target.value = ''; }} />
       {notice && <p className={notice.tone === 'error' ? 'ws-notice csr-pane-notice' : 'csr-pane-status'} role="status">{notice.text}</p>}
       <p className="csr-hint csr-pane-hint">Open an operator to edit. Strong sides are preferred, weak ones avoided, and “Never” is a ban.</p>
       <div className="csr-team">
-        {operators.map(operator => <OperatorCard key={operator.id} operator={operator} weekStart={weekStart} canRemove={operators.length > 1} onUpdate={patch => onUpdate(operator.id, patch)} onRemove={() => onRemove(operator.id)} />)}
+        {operators.map(operator => <OperatorCard key={operator.id} operator={operator} weekStart={weekStart} canRemove={operators.length > 1} wishes={wishes.filter(wish => wish.operatorId === operator.id)} onRemoveWish={onRemoveWish} onUpdate={patch => onUpdate(operator.id, patch)} onRemove={() => onRemove(operator.id)} />)}
       </div>
     </>
   );

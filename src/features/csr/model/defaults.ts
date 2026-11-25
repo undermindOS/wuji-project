@@ -1,9 +1,11 @@
-import type { Band, Cell, CsrState, DayTarget, Operator, Plan, Request, ShiftKind, ShiftTemplate, WeekData, WeekInput } from './types.ts';
+import type { Band, Cell, Channel, CsrState, DayTarget, Operator, Plan, Request, Rollout, ShiftKind, ShiftTemplate, WeekData, WeekInput } from './types.ts';
 
 export const DEPARTMENT_ZONE = 'America/Los_Angeles';
 export const OPEN = 6 * 60;
 export const CLOSE = 20 * 60;
 export const SLOT = 30;
+/** Half hours in the department day. */
+export const SLOTS = (CLOSE - OPEN) / SLOT;
 /** Lunch is not taken in the first or the last hour of a shift. */
 export const LUNCH_MARGIN = 60;
 /** Two-letter days, as the team writes them in its sheet; used in exports only. */
@@ -82,8 +84,15 @@ export function emptyRequests(operators: Operator[]): Record<string, Request[]> 
   return Object.fromEntries(operators.map(operator => [operator.id, Array<Request>(7).fill('auto')]));
 }
 
+/** The non-voice channels the team splits between operators; the list is editable. */
+export function defaultChannels(): Channel[] {
+  return [{ id: 'broccoli', name: 'Broccoli' }, { id: 'slack-tags', name: 'All Slack Tags' }, { id: 'email-chats', name: 'Email + ST Chats' }];
+}
+
+export const emptyRollout = (): Rollout => Array.from({ length: 7 }, () => ({}));
+
 export function emptyWeek(operators: Operator[], targets: DayTarget[] = defaultTargets()): WeekData {
-  return { targets: targets.map(target => ({ ...target })), requests: emptyRequests(operators), plan: null, planStatus: null };
+  return { targets: targets.map(target => ({ ...target })), requests: emptyRequests(operators), plan: null, planStatus: null, rollout: emptyRollout() };
 }
 
 /** Opens on the team's own published week, so the checks can be read against a schedule they know. */
@@ -93,7 +102,7 @@ export function defaultState(): CsrState {
   week.plan = samplePlan();
   for (const operator of operators) week.plan[operator.id].forEach((cell, day) => { if (cell === 'vacation') week.requests[operator.id][day] = 'vacation'; });
   week.planStatus = { source: 'sample', rulesProven: null, tuned: null, relaxed: null, edited: false, stale: false };
-  return { version: 1, operators, weekStart: SAMPLE_WEEK_START, weeks: { [SAMPLE_WEEK_START]: week } };
+  return { version: 1, operators, channels: defaultChannels(), weekStart: SAMPLE_WEEK_START, weeks: { [SAMPLE_WEEK_START]: week } };
 }
 
 export function weekInput(state: CsrState): WeekInput {

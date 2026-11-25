@@ -44,7 +44,8 @@ export interface WeekInput {
 }
 
 export interface PlanStatus {
-  source: 'sample' | 'solver';
+  /** Where the plan came from: the team's own sheet, the solver, or cells set by hand on an empty week. */
+  source: 'sample' | 'solver' | 'manual';
   /** Solver only: the rule violations left in the plan are proven to be the fewest possible. */
   rulesProven: boolean | null;
   /** Solver only: preferences were optimised to within 3%; false when that search ran out of time. */
@@ -56,17 +57,38 @@ export interface PlanStatus {
   stale: boolean;
 }
 
+/** A non-voice channel that someone has to hold at every moment of the day. */
+export interface Channel { id: string; name: string }
+/** Seven days; for each, channel id -> who holds the channel in each half hour of the department day (or null). */
+export type Rollout = Record<string, (string | null)[]>[];
+
 export interface WeekData {
   targets: DayTarget[];
   requests: Record<string, Request[]>;
   plan: Plan | null;
   planStatus: PlanStatus | null;
+  rollout: Rollout;
+}
+
+/** What an operator asked for through a wish link. */
+export interface Wish {
+  id: string;
+  weekStart: string;
+  operatorId: string;
+  nick: string;
+  /** Seven entries, Monday first: wants to work, wants the day off, or no preference. */
+  days: ('work' | 'off' | '')[];
+  /** Ids of the shifts the operator prefers. */
+  shifts: string[];
+  comment: string;
+  createdAt: string;
 }
 
 /** Everything the tool keeps: the team, and every week worked on, keyed by its Monday. */
 export interface CsrState {
   version: 1;
   operators: Operator[];
+  channels: Channel[];
   weekStart: string;
   weeks: Record<string, WeekData>;
 }

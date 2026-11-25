@@ -2,14 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import BrandMark from '../components/BrandMark';
 import ScanlineOverlay from '../components/ScanlineOverlay';
+import { useAccount } from '../features/csr/api/useAccount.ts';
+import type { Accounts } from '../features/csr/api/useAccount.ts';
 import { useSharedSync } from '../features/csr/api/useSharedSync.ts';
 import type { SharedSync } from '../features/csr/api/useSharedSync.ts';
 import { useWishes } from '../features/csr/api/useWishes.ts';
+import AccountBox from '../features/csr/components/AccountBox';
 import Bell from '../features/csr/components/Bell';
 import Guide from '../features/csr/components/Guide';
+import OperatorWishes from '../features/csr/components/OperatorWishes';
 import RolloutPane from '../features/csr/components/RolloutPane';
 import SaveHistory from '../features/csr/components/SaveHistory';
 import SchedulePane from '../features/csr/components/SchedulePane';
+import SignIn from '../features/csr/components/SignIn';
 import type { ClockMode } from '../features/csr/components/SchedulePane';
 import TeamPane from '../features/csr/components/TeamPane';
 import WeekPane from '../features/csr/components/WeekPane';
@@ -64,13 +69,15 @@ function download(filename: string, blob: Blob) {
 }
 
 /** One line under the toolbar: where the work is saved, what just happened to it, and what to do when two copies disagree. */
-function SyncLine({ sync, autosaved, note }: { sync: SharedSync; autosaved: boolean; note: Notice }) {
-  const [key, setKey] = useState('');
+function SyncLine({ sync, auth, autosaved, note, onAccount }: { sync: SharedSync; auth: Accounts; autosaved: boolean; note: Notice; onAccount: () => void }) {
+  const waiting = auth.account?.status === 'pending';
   const here = autosaved ? 'Autosaved in this browser.' : 'This browser cannot autosave; use “Save to file” under the team list.';
   const shared = sync.status === 'checking' ? 'Checking the copy saved for everyone…'
     : sync.status === 'not_connected' ? 'Shared storage is not connected yet, so “Save for everyone” is off.'
     : sync.status === 'unavailable' ? 'Shared storage cannot be reached right now.'
-    : sync.status === 'locked' ? 'The copy saved for everyone is behind the team key.'
+    : sync.status === 'locked' ? !auth.account ? 'The copy saved for everyone opens after you sign in.'
+      : waiting ? `Signed in as ${auth.account.nick}. The owner has not let this account in yet, so the copy saved for everyone stays closed.`
+      : `The copy saved for everyone did not open for ${auth.account.nick}.`
     : sync.revision === 0 ? 'Nothing has been saved for everyone yet.'
     : sync.dirty ? `You have changes that are not saved for everyone. Last shared save: ${whenLabel(sync.savedAt)}.`
     : `Same as the copy saved for everyone on ${whenLabel(sync.savedAt)}.`;
@@ -83,22 +90,22 @@ function SyncLine({ sync, autosaved, note }: { sync: SharedSync; autosaved: bool
           <button type="button" className="ws-text-button" onClick={sync.keepMine}>Decide later</button></p>
       ) : (
         <p role="status">{here} {shared}{sync.message ? <b data-tone={sync.message.tone}> {sync.message.text}</b> : null}
-          {sync.status === 'ready' && sync.protectedByKey && <button type="button" className="ws-text-button" onClick={sync.forgetKey}>Forget the team key here</button>}</p>
+          {sync.status === 'locked' && auth.account && <><button type="button" className="ws-text-button" onClick={auth.refresh}>Check again</button><button type="button" className="ws-text-button" onClick={onAccount}>Account</button><button type="button" className="ws-text-button" onClick={auth.signOut}>Sign out</button></>}</p>
       )}
-      {sync.status === 'locked' && !sync.incoming && (
-        <form className="csr-unlock" onSubmit={event => { event.preventDefault(); sync.unlock(key); setKey(''); }}>
-          <label htmlFor="csr-team-key">Team key</label>
-          <input id="csr-team-key" type="password" autoComplete="current-password" value={key} onChange={event => setKey(event.target.value)} />
-          <button type="submit" className="ws-outline" disabled={!key.trim()}>Unlock</button>
-          <span>Ask the scheduler for it. It is remembered in this browser.</span>
-        </form>
-      )}
+      {sync.status === 'locked' && !auth.account && !sync.incoming && <SignIn auth={auth} />}
       {note && <p role="status"><b data-tone={note.tone}>{note.text}</b></p>}
     </div>
   );
 }
 
+/** The address serves two kinds of people: an operator with an account gets the wish form, everyone else the builder. */
 export default function CsrWorkspace() {
+  const auth = useAccount();
+  if (!auth.loaded) return <div role="status" className="font-data text-phosphor p-8">Loading schedule…</div>;
+  return auth.account?.status === 'active' && auth.account.role === 'operator' ? <OperatorWishes auth={auth} /> : <Builder auth={auth} />;
+}
+
+function Builder({ auth }: { auth: Accounts }) {
   const [initial] = useState(loadState);
   const [state, setState] = useState<CsrState>(initial.state);
   const [notice, setNotice] = useState<Notice>(initial.notice);
@@ -114,6 +121,7 @@ export default function CsrWorkspace() {
   const [guideOpen, setGuideOpen] = useState(() => !guideSeen());
   const [bellOpen, setBellOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -147,7 +155,8 @@ export default function CsrWorkspace() {
   const cancelBuild = build.cancel;
   // A copy loaded from shared storage replaces this browser's copy as a whole.
   const adopt = useCallback((next: CsrState) => { cancelBuild(); setState(next); setSelected(null); setFocusCheckId(null); setExportNotice(null); }, [cancelBuild]);
-  const sync = useSharedSync(state, adopt, initial.hadLocalCopy);
+  const approved = auth.account?.status === 'active' && (auth.account.role === 'owner' || auth.account.role === 'scheduler');
+  const sync = useSharedSync(state, adopt, initial.hadLocalCopy, auth.account ? `${auth.account.nick}/${auth.account.status}/${auth.account.role}` : '', !auth.enabled || approved);
   const wishes = useWishes(sync.status === 'ready', sync.status === 'locked');
   const closeGuide = useCallback(() => {
     setGuideOpen(false);
@@ -155,6 +164,7 @@ export default function CsrWorkspace() {
   }, []);
 
   const closeHistory = useCallback(() => setHistoryOpen(false), []);
+  const closeAccount = useCallback(() => setAccountOpen(false), []);
 
   const showSetup = (view: 'team' | 'week') => { setSetupView(view); setMobileView(view); };
   const openWeekAt = (weekStart: string) => { build.cancel(); setSelected(null); setFocusCheckId(null); change(current => openWeek(current, weekStart)); };
@@ -196,7 +206,10 @@ export default function CsrWorkspace() {
       <header className="ws-header">
         <Link to="/" aria-label="WUJI — home" className="ws-brand"><BrandMark /></Link>
         <span className="ws-header-label">SCHEDULE BUILDER <span aria-hidden="true">/</span> OPERATORS</span>
-        <div className="ws-header-actions"><Bell wishes={wishes} operators={state.operators} weekStart={state.weekStart} locked={sync.status === 'locked'} open={bellOpen} onToggle={setBellOpen} /><Link to="/" className="ws-home-link">HOME ↗</Link></div>
+        <div className="ws-header-actions">
+          {auth.account && <button type="button" className="csr-account-button" aria-haspopup="dialog" onClick={() => setAccountOpen(true)} data-unread={auth.waiting > 0}
+            aria-label={auth.waiting ? `Account ${auth.account.nick}: ${auth.waiting} waiting to be let in` : `Account ${auth.account.nick}`}><span>{auth.account.nick}</span>{auth.waiting > 0 && <b>{auth.waiting}</b>}</button>}
+          <Bell wishes={wishes} operators={state.operators} weekStart={state.weekStart} locked={sync.status === 'locked'} open={bellOpen} onToggle={setBellOpen} /><Link to="/" className="ws-home-link">HOME ↗</Link></div>
       </header>
       <div className="csr-top">
         <div className="csr-title"><p className="ws-kicker"><span className="ws-green">WU</span><span className="ws-red">JI</span> // OPERATORS DIVISION</p><h1 className="font-display">BUILD THE WEEK<span className="ws-orange">_</span></h1></div>
@@ -206,7 +219,7 @@ export default function CsrWorkspace() {
             ? <button type="button" className="ws-outline csr-build" onClick={build.cancel}><span>Building…</span><span>Cancel ×</span></button>
             : <button type="button" className="ws-primary csr-build" onClick={() => { setExportNotice(null); build.start(input); }}><span>{week.plan ? 'Rebuild the week' : 'Build the week'}</span><span aria-hidden="true">→</span></button>}
           <button type="button" className="ws-outline csr-save" data-dirty={sync.status === 'ready' && sync.dirty} disabled={sync.status !== 'ready' || sync.saving} onClick={() => sync.save()}
-            title={sync.status === 'ready' ? 'Saves the team and every week where everyone who opens this page gets them' : sync.status === 'locked' ? 'Enter the team key first' : 'Shared storage is not available'}>
+            title={sync.status === 'ready' ? 'Saves the team and every week where everyone who opens this page gets them' : sync.status === 'locked' ? 'Sign in with an account the owner has let in' : 'Shared storage is not available'}>
             <span>{sync.saving ? 'Saving…' : 'Save for everyone'}</span><span aria-hidden="true">↑</span></button>
           <button type="button" className="ws-outline csr-guide-open" onClick={() => setGuideOpen(true)}>Guide ?</button>
           {confirmReset
@@ -214,7 +227,7 @@ export default function CsrWorkspace() {
             : <button type="button" className="ws-reset" onClick={() => setConfirmReset(true)}>Reset ↺</button>}
         </div>
       </div>
-      <SyncLine sync={sync} autosaved={saved} note={notice} />
+      <SyncLine sync={sync} auth={auth} autosaved={saved} note={notice} onAccount={() => setAccountOpen(true)} />
       <nav className="ws-mobile-tabs" aria-label="Schedule builder panels">{views.map(view => <button type="button" key={view.id} onClick={() => { setMobileView(view.id); if (view.id !== 'schedule') setSetupView(view.id); }} aria-pressed={mobileView === view.id}><span>{view.number}</span> {view.label}</button>)}</nav>
       <main className="ws-panels" aria-label="Schedule builder">
         <section id="workspace-setup" className="ws-pane ws-source-pane" aria-labelledby="setup-heading" data-active={mobileView !== 'schedule'}>
@@ -246,9 +259,10 @@ export default function CsrWorkspace() {
               onAddChannel={() => change(addChannel)} onRenameChannel={(id, name) => change(current => renameChannel(current, id, name))} onRemoveChannel={id => change(current => removeChannel(current, id))} />} />
         </section>
       </main>
-      <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {saved ? 'AUTOSAVED IN THIS BROWSER' : 'NOT AUTOSAVED — USE “SAVE TO FILE”'} <span className="ws-footer-divider">/</span> <span>{sync.status === 'ready' ? sync.dirty ? 'NOT YET SAVED FOR EVERYONE' : 'SAVED FOR EVERYONE' : sync.status === 'locked' ? 'SHARED COPY NEEDS THE TEAM KEY' : 'SHARED STORAGE OFF'}</span></span><span><Link to="/workspace" className="csr-footer-link">SCHEDULE REPAIR DEMO ↗</Link></span></footer>
+      <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {saved ? 'AUTOSAVED IN THIS BROWSER' : 'NOT AUTOSAVED — USE “SAVE TO FILE”'} <span className="ws-footer-divider">/</span> <span>{sync.status === 'ready' ? sync.dirty ? 'NOT YET SAVED FOR EVERYONE' : 'SAVED FOR EVERYONE' : sync.status === 'locked' ? auth.account ? 'SHARED COPY WAITS FOR THE OWNER’S APPROVAL' : 'SIGN IN TO OPEN THE SHARED COPY' : 'SHARED STORAGE OFF'}</span></span><span><Link to="/workspace" className="csr-footer-link">SCHEDULE REPAIR DEMO ↗</Link></span></footer>
       {guideOpen && <Guide onClose={closeGuide} />}
       {historyOpen && <SaveHistory sync={sync} onClose={closeHistory} />}
+      {accountOpen && <AccountBox auth={auth} operators={state.operators} onClose={closeAccount} />}
     </div>
   );
 }

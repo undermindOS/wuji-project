@@ -17,7 +17,7 @@ export interface Wishes {
 
 /**
  * Wishes sent through wish links, newest first, checked once a minute and whenever the tab gets focus.
- * `locked`: this browser has no team key, so wishes it loaded earlier are no longer its to show.
+ * `locked`: nobody with an approved account is signed in here, so wishes loaded earlier are no longer this browser's to show.
  */
 export function useWishes(connected: boolean, locked = false): Wishes {
   const [wishes, setWishes] = useState<Wish[]>([]);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseState, serializeState } from '../model/storage.ts';
 import type { CsrState } from '../model/types.ts';
-import { checkStorage, loadShared, loadVersion, saveShared, storeKey, storedKey } from './shared.ts';
+import { checkStorage, loadShared, loadVersion, saveShared } from './shared.ts';
 import type { SavedVersion } from './shared.ts';
 
 const META_KEY = 'wuji.csr.shared.v1';
@@ -9,7 +9,7 @@ const POLL_MS = 60_000;
 
 /** What this browser last had in common with shared storage. */
 interface Meta { revision: number; savedAt: string; hash: string }
-/** 'locked': the shared copy is behind a team key that this browser does not have, or has wrong. */
+/** 'locked': the shared copy is for approved accounts, and nobody with one is signed in here. */
 export type SyncStatus = 'checking' | 'not_connected' | 'unavailable' | 'locked' | 'ready';
 export interface SharedSync {
   status: SyncStatus;
@@ -22,12 +22,6 @@ export interface SharedSync {
   /** Someone saved a newer version while this browser has changes of its own. */
   incoming: SavedVersion | null;
   message: { tone: 'ok' | 'error'; text: string } | null;
-  /** The site asks for a team key at all (whether or not this browser has it). */
-  protectedByKey: boolean;
-  /** Tries a team key; it is kept in this browser only when the site accepts it. */
-  unlock: (key: string) => void;
-  /** Removes the team key from this browser. */
-  forgetKey: () => void;
   save: (force?: boolean) => void;
   loadIncoming: () => void;
   keepMine: () => void;
@@ -54,14 +48,15 @@ function readMeta(): Meta {
  * Keeps this browser's copy and the copy saved for everyone apart on purpose: edits are autosaved here,
  * and go to everyone only when Save is pressed. A newer shared version is loaded on its own only when
  * this browser has nothing unsaved; otherwise the scheduler is asked.
+ * `visitor` names who is signed in: when it changes, the shared copy is asked for again.
+ * `mayOpen` is false when the page already knows this visitor will be refused, so it does not ask.
  */
-export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, hadLocalCopy: boolean): SharedSync {
+export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, hadLocalCopy: boolean, visitor = '', mayOpen = true): SharedSync {
   const [meta, setMetaState] = useState<Meta>(readMeta);
   const [status, setStatus] = useState<SyncStatus>('checking');
   const [saving, setSaving] = useState(false);
   const [incoming, setIncoming] = useState<SavedVersion | null>(null);
   const [message, setMessage] = useState<SharedSync['message']>(null);
-  const [protectedByKey, setProtectedByKey] = useState(false);
   const text = serializeState(state);
   const dirty = fingerprint(text) !== meta.hash;
   const latest = useRef({ meta, dirty, text, hadLocalCopy, dismissed: 0 });
@@ -91,16 +86,10 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
   const pull = useCallback(async () => {
     const health = await checkStorage();
     if (!health.ok || !health.data.storage) { setStatus(health.ok || health.trouble === 'not_connected' ? 'not_connected' : 'unavailable'); return; }
-    setProtectedByKey(health.data.locked === true);
-    // Without a key there is nothing to ask the site for; the page waits for one.
-    if (health.data.locked && !storedKey()) { setStatus('locked'); return; }
+    // Not signed in, not approved yet, or signed out since: this browser keeps its own copy and waits.
+    if (health.data.locked && !mayOpen) { setIncoming(null); setStatus('locked'); return; }
     const reply = await loadShared();
-    if (!reply.ok && reply.trouble === 'locked') {
-      // The key this browser holds is no longer the team key: the owner changed it.
-      storeKey(null); setStatus('locked');
-      setMessage({ tone: 'error', text: 'The team key saved in this browser is no longer accepted. Enter the current one.' });
-      return;
-    }
+    if (!reply.ok && reply.trouble === 'locked') { setIncoming(null); setStatus('locked'); return; }
     if (!reply.ok) { setStatus(reply.trouble === 'not_connected' ? 'not_connected' : 'unavailable'); return; }
     setStatus('ready');
     const shared = reply.data, now = latest.current;
@@ -108,7 +97,7 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
     // A browser that never held a copy of its own, or holds an unchanged one, simply follows the shared copy.
     if (!now.hadLocalCopy || !now.dirty) { latest.current.hadLocalCopy = true; take(shared, 'Loaded the latest version saved for everyone.'); return; }
     if (shared.revision !== now.dismissed) setIncoming({ revision: shared.revision, savedAt: shared.savedAt });
-  }, [take]);
+  }, [take, mayOpen]);
 
   useEffect(() => {
     void pull();
@@ -116,7 +105,7 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
     const onFocus = () => { void pull(); };
     window.addEventListener('focus', onFocus);
     return () => { window.clearInterval(timer); window.removeEventListener('focus', onFocus); };
-  }, [pull]);
+  }, [pull, visitor]);
 
   const save = useCallback(async (force = false) => {
     setSaving(true); setMessage(null);
@@ -132,26 +121,10 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
       setIncoming({ revision: Number(reply.detail?.revision ?? 0), savedAt: String(reply.detail?.savedAt ?? '') });
     } else {
       if (reply.trouble === 'not_connected') setStatus('not_connected');
-      if (reply.trouble === 'locked') { storeKey(null); setStatus('locked'); }
+      if (reply.trouble === 'locked') setStatus('locked');
       setMessage({ tone: 'error', text: `Not saved for everyone: ${reply.message}` });
     }
   }, [setMeta]);
-
-  const unlock = useCallback(async (key: string) => {
-    const candidate = key.trim();
-    if (!candidate) return;
-    // Tried first, kept only if the site accepts it.
-    const reply = await loadShared(candidate);
-    if (!reply.ok && reply.trouble === 'locked') { setMessage({ tone: 'error', text: 'That is not the team key.' }); return; }
-    if (!reply.ok) { setMessage({ tone: 'error', text: reply.message }); return; }
-    storeKey(candidate); setMessage(null);
-    await pull();
-  }, [pull]);
-
-  const forgetKey = useCallback(() => {
-    storeKey(null); setIncoming(null); setStatus('locked');
-    setMessage({ tone: 'ok', text: 'The team key was removed from this browser.' });
-  }, []);
 
   const loadIncoming = useCallback(async () => {
     const reply = await loadShared();
@@ -171,7 +144,6 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
     setMessage({ tone: 'ok', text: 'Loaded the earlier version into this browser. Press “Save for everyone” to make it the shared one.' });
   }, [adopt]);
 
-  return { status, revision: meta.revision, savedAt: meta.savedAt, dirty, saving, incoming, message, protectedByKey,
-    unlock: (key: string) => { void unlock(key); }, forgetKey,
+  return { status, revision: meta.revision, savedAt: meta.savedAt, dirty, saving, incoming, message,
     save: (force?: boolean) => { void save(force === true); }, loadIncoming: () => { void loadIncoming(); }, keepMine, restore: (revision: number) => { void restore(revision); } };
 }

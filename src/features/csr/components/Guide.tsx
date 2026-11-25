@@ -31,7 +31,7 @@ export default function Guide({ onClose }: { onClose: () => void }) {
         <ol>
           {STEPS.map(([title, text], index) => <li key={title}><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><div><strong>{title}</strong><p>{text}</p></div></li>)}
         </ol>
-        <p className="csr-guide-note">Autosave keeps your work in this browser only. Nobody else sees a change until you press “Save for everyone”. If the page asks for a team key, ask the scheduler for it. This guide opens again from the “Guide” button.</p>
+        <p className="csr-guide-note">Autosave keeps your work in this browser only. Nobody else sees a change until you press “Save for everyone”. If the page asks you to sign in, create an account and ask the owner to let it in. This guide opens again from the “Guide” button.</p>
         <button type="button" ref={start} className="ws-primary" onClick={onClose}><span>Start</span><span aria-hidden="true">→</span></button>
       </div>
     </div>

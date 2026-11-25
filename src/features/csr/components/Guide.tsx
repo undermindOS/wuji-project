@@ -7,7 +7,7 @@ const STEPS: [string, string][] = [
   ['Read the checks', 'The checks under the schedule say what holds and what does not: both lines covered, lunch possible, everyone at their number of shifts. Click a check to see its cells.'],
   ['Split the non-voice channels', 'On the “Non-voice channels” tab, pick a day and say who holds each channel through each stretch of the day. “Fill automatically” gives a first draft.'],
   ['Collect wishes', '“Wishes” at the top makes a link for the operators. Each one picks their name, marks days and hours and adds a comment. What they send shows up under “Wishes” and in their card on the left.'],
-  ['Save and share', 'Every change is autosaved in this browser. “Save for everyone” puts your copy where everyone who opens this page gets it. Download the week as a PDF for the chat, or copy it into the team sheet.'],
+  ['Save and share', 'Every change is autosaved in this browser. “Save for everyone” puts your copy where everyone who opens this page gets it, and “Save history” above the team keeps the last thirty of those saves. Download the week as a PDF for the chat, or copy it into the team sheet.'],
 ];
 
 /** The first-visit guide. It opens once, and again from the "Guide" button next to the build button. */
@@ -31,7 +31,7 @@ export default function Guide({ onClose }: { onClose: () => void }) {
         <ol>
           {STEPS.map(([title, text], index) => <li key={title}><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><div><strong>{title}</strong><p>{text}</p></div></li>)}
         </ol>
-        <p className="csr-guide-note">Autosave keeps your work in this browser only. Nobody else sees a change until you press “Save for everyone”. This guide opens again from the “Guide” button.</p>
+        <p className="csr-guide-note">Autosave keeps your work in this browser only. Nobody else sees a change until you press “Save for everyone”. If the page asks for a team key, ask the scheduler for it. This guide opens again from the “Guide” button.</p>
         <button type="button" ref={start} className="ws-primary" onClick={onClose}><span>Start</span><span aria-hidden="true">→</span></button>
       </div>
     </div>

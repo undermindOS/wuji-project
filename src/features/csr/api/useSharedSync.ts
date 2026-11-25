@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseState, serializeState } from '../model/storage.ts';
 import type { CsrState } from '../model/types.ts';
-import { checkStorage, listVersions, loadShared, loadVersion, saveShared } from './shared.ts';
+import { checkStorage, loadShared, loadVersion, saveShared, storeKey, storedKey } from './shared.ts';
 import type { SavedVersion } from './shared.ts';
 
 const META_KEY = 'wuji.csr.shared.v1';
@@ -9,7 +9,8 @@ const POLL_MS = 60_000;
 
 /** What this browser last had in common with shared storage. */
 interface Meta { revision: number; savedAt: string; hash: string }
-export type SyncStatus = 'checking' | 'not_connected' | 'unavailable' | 'ready';
+/** 'locked': the shared copy is behind a team key that this browser does not have, or has wrong. */
+export type SyncStatus = 'checking' | 'not_connected' | 'unavailable' | 'locked' | 'ready';
 export interface SharedSync {
   status: SyncStatus;
   /** Revision this browser's copy is based on; 0 when nothing was ever saved for everyone. */
@@ -21,11 +22,16 @@ export interface SharedSync {
   /** Someone saved a newer version while this browser has changes of its own. */
   incoming: SavedVersion | null;
   message: { tone: 'ok' | 'error'; text: string } | null;
-  versions: SavedVersion[] | null;
+  /** The site asks for a team key at all (whether or not this browser has it). */
+  protectedByKey: boolean;
+  /** Tries a team key; it is kept in this browser only when the site accepts it. */
+  unlock: (key: string) => void;
+  /** Removes the team key from this browser. */
+  forgetKey: () => void;
   save: (force?: boolean) => void;
   loadIncoming: () => void;
   keepMine: () => void;
-  showVersions: () => void;
+  /** Makes an earlier save this browser's copy. */
   restore: (revision: number) => void;
 }
 
@@ -55,7 +61,7 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
   const [saving, setSaving] = useState(false);
   const [incoming, setIncoming] = useState<SavedVersion | null>(null);
   const [message, setMessage] = useState<SharedSync['message']>(null);
-  const [versions, setVersions] = useState<SavedVersion[] | null>(null);
+  const [protectedByKey, setProtectedByKey] = useState(false);
   const text = serializeState(state);
   const dirty = fingerprint(text) !== meta.hash;
   const latest = useRef({ meta, dirty, text, hadLocalCopy, dismissed: 0 });
@@ -85,7 +91,16 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
   const pull = useCallback(async () => {
     const health = await checkStorage();
     if (!health.ok || !health.data.storage) { setStatus(health.ok || health.trouble === 'not_connected' ? 'not_connected' : 'unavailable'); return; }
+    setProtectedByKey(health.data.locked === true);
+    // Without a key there is nothing to ask the site for; the page waits for one.
+    if (health.data.locked && !storedKey()) { setStatus('locked'); return; }
     const reply = await loadShared();
+    if (!reply.ok && reply.trouble === 'locked') {
+      // The key this browser holds is no longer the team key: the owner changed it.
+      storeKey(null); setStatus('locked');
+      setMessage({ tone: 'error', text: 'The team key saved in this browser is no longer accepted. Enter the current one.' });
+      return;
+    }
     if (!reply.ok) { setStatus(reply.trouble === 'not_connected' ? 'not_connected' : 'unavailable'); return; }
     setStatus('ready');
     const shared = reply.data, now = latest.current;
@@ -111,15 +126,32 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
     if (reply.ok) {
       latest.current.hadLocalCopy = true;
       setMeta({ revision: reply.data.revision, savedAt: reply.data.savedAt, hash: fingerprint(sent) });
-      setIncoming(null); setStatus('ready'); setVersions(null);
+      setIncoming(null); setStatus('ready');
       setMessage({ tone: 'ok', text: 'Saved for everyone.' });
     } else if (reply.trouble === 'conflict') {
       setIncoming({ revision: Number(reply.detail?.revision ?? 0), savedAt: String(reply.detail?.savedAt ?? '') });
     } else {
       if (reply.trouble === 'not_connected') setStatus('not_connected');
+      if (reply.trouble === 'locked') { storeKey(null); setStatus('locked'); }
       setMessage({ tone: 'error', text: `Not saved for everyone: ${reply.message}` });
     }
   }, [setMeta]);
+
+  const unlock = useCallback(async (key: string) => {
+    const candidate = key.trim();
+    if (!candidate) return;
+    // Tried first, kept only if the site accepts it.
+    const reply = await loadShared(candidate);
+    if (!reply.ok && reply.trouble === 'locked') { setMessage({ tone: 'error', text: 'That is not the team key.' }); return; }
+    if (!reply.ok) { setMessage({ tone: 'error', text: reply.message }); return; }
+    storeKey(candidate); setMessage(null);
+    await pull();
+  }, [pull]);
+
+  const forgetKey = useCallback(() => {
+    storeKey(null); setIncoming(null); setStatus('locked');
+    setMessage({ tone: 'ok', text: 'The team key was removed from this browser.' });
+  }, []);
 
   const loadIncoming = useCallback(async () => {
     const reply = await loadShared();
@@ -129,22 +161,17 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
 
   const keepMine = useCallback(() => { latest.current.dismissed = incoming?.revision ?? 0; setIncoming(null); }, [incoming]);
 
-  const showVersions = useCallback(async () => {
-    if (versions) { setVersions(null); return; }
-    const reply = await listVersions();
-    if (reply.ok) setVersions(reply.data.versions); else setMessage({ tone: 'error', text: reply.message });
-  }, [versions]);
-
   // An earlier version becomes this browser's copy only; it reaches everyone when Save is pressed.
   const restore = useCallback(async (revision: number) => {
     const reply = await loadVersion(revision);
     if (!reply.ok) { setMessage({ tone: 'error', text: reply.message }); return; }
     const parsed = parseState(JSON.stringify(reply.data.state));
     if ('error' in parsed) { setMessage({ tone: 'error', text: `That version could not be read (${parsed.error})` }); return; }
-    adopt(parsed.state); setVersions(null);
+    adopt(parsed.state);
     setMessage({ tone: 'ok', text: 'Loaded the earlier version into this browser. Press “Save for everyone” to make it the shared one.' });
   }, [adopt]);
 
-  return { status, revision: meta.revision, savedAt: meta.savedAt, dirty, saving, incoming, message, versions,
-    save: (force?: boolean) => { void save(force === true); }, loadIncoming: () => { void loadIncoming(); }, keepMine, showVersions: () => { void showVersions(); }, restore: (revision: number) => { void restore(revision); } };
+  return { status, revision: meta.revision, savedAt: meta.savedAt, dirty, saving, incoming, message, protectedByKey,
+    unlock: (key: string) => { void unlock(key); }, forgetKey,
+    save: (force?: boolean) => { void save(force === true); }, loadIncoming: () => { void loadIncoming(); }, keepMine, restore: (revision: number) => { void restore(revision); } };
 }

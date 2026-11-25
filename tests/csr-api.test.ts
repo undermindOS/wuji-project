@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import handler, { createApi, kvFromEnv, memoryKv, storageSeen, upstashKv } from '../api/csr.ts';
+import handler, { accessKeyFromEnv, createApi, kvFromEnv, memoryKv, storageSeen, upstashKv } from '../api/csr.ts';
+import { call as clientCall } from '../src/features/csr/api/shared.ts';
 
 const api = () => createApi(memoryKv());
 const call = async (target: { fetch(request: Request): Promise<Response> }, method: string, op: string, body?: unknown) => {
@@ -11,14 +12,14 @@ const state = (operators = [{ id: 'sam', nick: 'Sam' }]) => ({ version: 1, opera
 
 test('without storage the address answers, says so, and stores nothing', async () => {
   const offline = createApi(null);
-  assert.deepEqual((await call(offline, 'GET', 'health')).data, { ok: true, storage: false });
+  assert.deepEqual((await call(offline, 'GET', 'health')).data, { ok: true, storage: false, locked: false });
   const read = await call(offline, 'GET', 'state');
   assert.deepEqual([read.status, read.data.error], [503, 'storage_not_connected']);
   assert.equal((await call(offline, 'POST', 'state', { state: state(), baseRevision: 0 })).status, 503);
   assert.equal((await call(offline, 'GET', 'nope')).status, 404);
   // No variables on this machine, so the deployed entry point reports the same.
   assert.equal(kvFromEnv({}), null);
-  assert.deepEqual(await (await handler.fetch(new Request('https://example.test/api/csr?op=health'))).json(), { ok: true, storage: kvFromEnv(process.env) !== null, seen: storageSeen(process.env) });
+  assert.deepEqual(await (await handler.fetch(new Request('https://example.test/api/csr?op=health'))).json(), { ok: true, storage: kvFromEnv(process.env) !== null, locked: accessKeyFromEnv(process.env) !== null, seen: storageSeen(process.env) });
 });
 
 test('a save replaces the shared state, keeps every version, and refuses to overwrite a newer one silently', async () => {
@@ -112,7 +113,54 @@ test('the health answer says which storage settings are missing, and never what 
   assert.deepEqual(storageSeen({ UPSTASH_REDIS_REST_URL: 'https://db.example.test' }), { restAddress: true, restToken: false, redisAddress: false });
   const answer = await createApi(null, storageSeen(full)).fetch(new Request('https://example.test/api/csr?op=health'));
   const text = await answer.text();
-  assert.deepEqual(JSON.parse(text), { ok: true, storage: false, seen: { restAddress: true, restToken: true, redisAddress: true } });
+  assert.deepEqual(JSON.parse(text), { ok: true, storage: false, locked: false, seen: { restAddress: true, restToken: true, redisAddress: true } });
   assert.doesNotMatch(text, /secret|example\.test|STORAGE|KV_|REDIS/);
+});
+
+test('with a team key set, the shared copy and the wish list answer only to those who have it', async () => {
+  const KEY = 'unit-test team key 7f3a';
+  const locked = createApi(memoryKv(), undefined, KEY);
+  const ask = async (method: string, op: string, key?: string, body?: unknown) => {
+    const response = await locked.fetch(new Request(`https://example.test/api/csr?op=${op}`, { method, headers: key === undefined ? undefined : { 'x-csr-key': key }, body: body === undefined ? undefined : JSON.stringify(body) }));
+    const text = await response.text();
+    return { status: response.status, data: JSON.parse(text), text };
+  };
+  // Anyone may learn that a key is needed, and nothing more.
+  assert.deepEqual((await ask('GET', 'health')).data, { ok: true, storage: true, locked: true });
+  for (const [method, op, body] of [['GET', 'state'], ['POST', 'state', { state: state(), baseRevision: 0 }], ['GET', 'history'], ['GET', 'wishes'], ['POST', 'wishlink', { weekStart: '2026-11-30', operators: [{ id: 'sam', nick: 'Sam' }] }], ['POST', 'wish-delete', { id: 'x' }]] as const) {
+    const none = await ask(method, op, undefined, body);
+    assert.deepEqual([op, none.status, none.data.error], [op, 401, 'key_required']);
+    const wrong = await ask(method, op, `${KEY}!`, body);
+    assert.deepEqual([op, wrong.status, wrong.data.error], [op, 401, 'key_wrong']);
+    assert.ok(!wrong.text.includes(KEY));
+  }
+  // Nothing was written by the refused requests.
+  assert.equal((await ask('GET', 'state', KEY)).data.revision, 0);
+  assert.equal((await ask('POST', 'state', KEY, { state: state(), baseRevision: 0 })).data.revision, 1);
+  const link = await ask('POST', 'wishlink', KEY, { weekStart: '2026-11-30', operators: [{ id: 'sam', nick: 'Sam' }] });
+  assert.equal(link.status, 200);
+  // An operator with a wish link needs no team key: the link's own code is what lets them in.
+  assert.deepEqual((await ask('GET', `wishlink&token=${link.data.token}`)).data, { weekStart: '2026-11-30', operators: [{ id: 'sam', nick: 'Sam' }] });
+  assert.equal((await ask('POST', 'wish', undefined, { token: link.data.token, operatorId: 'sam', days: ['off', '', '', '', '', '', ''], shifts: [], comment: '' })).status, 200);
+  assert.equal((await ask('GET', 'wishes')).status, 401);
+  assert.equal((await ask('GET', 'wishes', KEY)).data.wishes.length, 1);
+  // A blank variable is the same as no key; with no key the storage is open, as before.
+  assert.deepEqual([accessKeyFromEnv({}), accessKeyFromEnv({ CSR_ACCESS_KEY: '   ' }), accessKeyFromEnv({ CSR_ACCESS_KEY: ' abc ' })], [null, null, 'abc']);
+  assert.equal((await call(createApi(memoryKv()), 'GET', 'state')).status, 200);
+});
+
+test('the page sends the team key it was given and tells a refused key from other failures', async () => {
+  const sent: (string | null)[] = [];
+  const server = (status: number, body: unknown) => (async (_url: any, init: any) => { sent.push(new Headers(init.headers).get('x-csr-key')); return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }); }) as typeof fetch;
+  const ok = await clientCall('GET', 'state', undefined, server(200, { revision: 3 }), 'the key');
+  assert.deepEqual([ok.ok, sent[0]], [true, 'the key']);
+  const none = await clientCall('GET', 'state', undefined, server(401, { error: 'key_required', message: 'This needs the team key.' }), null);
+  assert.deepEqual([none.ok, !none.ok && none.trouble, sent[1]], [false, 'locked', null]);
+  const wrong = await clientCall('POST', 'state', { a: 1 }, server(401, { error: 'key_wrong', message: 'That is not the team key.' }), 'old key');
+  assert.deepEqual([!wrong.ok && wrong.trouble, !wrong.ok && wrong.message], ['locked', 'That is not the team key.']);
+  const down = await clientCall('GET', 'state', undefined, server(503, { error: 'storage_not_connected', message: 'x' }), null);
+  assert.equal(!down.ok && down.trouble, 'not_connected');
+  const page = await clientCall('GET', 'state', undefined, (async () => new Response('<!doctype html>', { status: 200, headers: { 'content-type': 'text/html' } })) as typeof fetch, null);
+  assert.equal(!page.ok && page.trouble, 'not_connected');
 });
 

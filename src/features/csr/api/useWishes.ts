@@ -15,8 +15,11 @@ export interface Wishes {
   refresh: () => void;
 }
 
-/** Wishes sent through wish links, newest first, checked once a minute and whenever the tab gets focus. */
-export function useWishes(connected: boolean): Wishes {
+/**
+ * Wishes sent through wish links, newest first, checked once a minute and whenever the tab gets focus.
+ * `locked`: this browser has no team key, so wishes it loaded earlier are no longer its to show.
+ */
+export function useWishes(connected: boolean, locked = false): Wishes {
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [available, setAvailable] = useState(false);
   const [seen, setSeen] = useState(() => { try { return window.localStorage.getItem(SEEN_KEY) ?? ''; } catch { return ''; } });
@@ -28,13 +31,13 @@ export function useWishes(connected: boolean): Wishes {
   }, []);
 
   useEffect(() => {
-    if (!connected) { setAvailable(false); return; }
+    if (!connected) { setAvailable(false); if (locked) setWishes([]); return; }
     void refresh();
     const timer = window.setInterval(() => { void refresh(); }, POLL_MS);
     const onFocus = () => { void refresh(); };
     window.addEventListener('focus', onFocus);
     return () => { window.clearInterval(timer); window.removeEventListener('focus', onFocus); };
-  }, [refresh, connected]);
+  }, [refresh, connected, locked]);
 
   const markSeen = useCallback(() => {
     const newest = wishes[0]?.createdAt ?? '';

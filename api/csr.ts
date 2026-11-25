@@ -1,6 +1,7 @@
 // Shared storage for the operators' schedule builder: one Vercel Function, one address, /api/csr?op=…
 // The file is self-contained on purpose: no imports, so nothing depends on how functions are bundled.
-// There is no sign-in yet. Anyone who can reach the address can read and replace what is stored here.
+// Access is by one team key, set by the project owner as CSR_ACCESS_KEY. Without that variable the
+// storage is open: anyone who can reach the address can read and replace what is stored here.
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -38,7 +39,19 @@ const hashValues = (flat: unknown): unknown[] => Array.isArray(flat) ? flat.filt
 /** What kind of storage settings the deployment can see. Yes or no only: never a name, never a value. */
 export interface StorageSeen { restAddress: boolean; restToken: boolean; redisAddress: boolean }
 
-export function createApi(kv: Kv | null, seen?: StorageSeen): { fetch(request: Request): Promise<Response> } {
+/** What an operator does through a wish link needs no team key: the link's own long random code guards it. */
+const OPEN = new Set(['GET wishlink', 'POST wish']);
+
+/** Compares two secrets without stopping at the first difference, so timing says nothing about the key. */
+async function sameSecret(given: string, expected: string): Promise<boolean> {
+  const digest = async (text: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
+  const [a, b] = await Promise.all([digest(given), digest(expected)]);
+  let difference = 0;
+  for (let index = 0; index < a.length; index += 1) difference |= a[index] ^ b[index];
+  return difference === 0;
+}
+
+export function createApi(kv: Kv | null, seen?: StorageSeen, accessKey: string | null = null): { fetch(request: Request): Promise<Response> } {
   const current = async (store: Kv): Promise<Stored> => {
     const saved = parse(await store.command(['GET', STATE]));
     return isObject(saved) && typeof saved.revision === 'number' ? saved as unknown as Stored : { revision: 0, savedAt: '', state: null };
@@ -127,9 +140,14 @@ export function createApi(kv: Kv | null, seen?: StorageSeen): { fetch(request: R
     async fetch(request) {
       const url = new URL(request.url);
       const op = url.searchParams.get('op') ?? '';
-      if (request.method === 'GET' && op === 'health') return json(200, { ok: true, storage: kv !== null, ...(seen ? { seen } : {}) });
+      if (request.method === 'GET' && op === 'health') return json(200, { ok: true, storage: kv !== null, locked: accessKey !== null, ...(seen ? { seen } : {}) });
       const route = routes[`${request.method} ${op}`];
       if (!route) return fail(404, 'not_found', 'Unknown request.');
+      if (accessKey !== null && !OPEN.has(`${request.method} ${op}`)) {
+        const given = request.headers.get('x-csr-key');
+        if (!given) return fail(401, 'key_required', 'This needs the team key.');
+        if (!await sameSecret(given, accessKey)) return fail(401, 'key_wrong', 'That is not the team key.');
+      }
       if (!kv) return fail(503, 'storage_not_connected', 'Shared storage is not connected yet.');
       try { return await route(kv, request, url); }
       catch { return fail(502, 'storage_failed', 'Shared storage did not answer. Try again in a moment.'); }
@@ -158,6 +176,9 @@ export function kvFromEnv(env: Record<string, string | undefined>): Kv | null {
   }
   return null;
 }
+
+/** The team key, when the owner has set one. A blank variable counts as not set. */
+export const accessKeyFromEnv = (env: Record<string, string | undefined>): string | null => env.CSR_ACCESS_KEY?.trim() || null;
 
 /**
  * Says why storage is or is not found, without revealing anything: whether a REST address, a REST token
@@ -197,4 +218,4 @@ export function memoryKv(): Kv {
   };
 }
 
-export default { fetch: (request: Request): Promise<Response> => createApi(kvFromEnv(process.env), storageSeen(process.env)).fetch(request) };
+export default { fetch: (request: Request): Promise<Response> => createApi(kvFromEnv(process.env), storageSeen(process.env), accessKeyFromEnv(process.env)).fetch(request) };

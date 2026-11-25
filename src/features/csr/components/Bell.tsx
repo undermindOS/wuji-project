@@ -9,12 +9,14 @@ interface BellProps {
   wishes: Wishes;
   operators: Operator[];
   weekStart: string;
+  /** The wish list is behind a team key this browser does not have. */
+  locked: boolean;
   open: boolean;
   onToggle: (open: boolean) => void;
 }
 
 /** The bell in the header: wishes that arrived through wish links, and the button that makes such a link. */
-export default function Bell({ wishes, operators, weekStart, open, onToggle }: BellProps) {
+export default function Bell({ wishes, operators, weekStart, locked, open, onToggle }: BellProps) {
   const root = useRef<HTMLDivElement>(null);
   const [link, setLink] = useState<{ weekStart: string; url: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -54,7 +56,7 @@ export default function Bell({ wishes, operators, weekStart, open, onToggle }: B
       {open && (
         <div className="csr-bell-panel" role="dialog" aria-label="Wishes from operators">
           <div className="csr-bell-head"><strong>Wishes from operators</strong><span className="ws-kicker">{wishes.wishes.length} in all</span></div>
-          {!wishes.available ? <p className="ws-notice">Wishes travel through shared storage, which is not connected yet. Once it is, the link and this list start working.</p> : (
+          {!wishes.available ? <p className="ws-notice">{locked ? 'Wishes are behind the team key. Enter it under the toolbar, and the link and this list start working.' : 'Wishes travel through shared storage, which is not connected yet. Once it is, the link and this list start working.'}</p> : (
             <>
               <div className="csr-bell-link">
                 <button type="button" className="ws-outline" disabled={busy} onClick={() => void create()}>{busy ? 'Making the link…' : `Make a wish link for ${weekRange(weekStart)}`}</button>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseState, serializeState } from '../model/storage.ts';
 import type { CsrState } from '../model/types.ts';
-import { checkStorage, listVersions, loadShared, loadVersion, saveShared, storeKey, storedKey } from './shared.ts';
+import { checkStorage, loadShared, loadVersion, saveShared, storeKey, storedKey } from './shared.ts';
 import type { SavedVersion } from './shared.ts';
 
 const META_KEY = 'wuji.csr.shared.v1';
@@ -22,7 +22,6 @@ export interface SharedSync {
   /** Someone saved a newer version while this browser has changes of its own. */
   incoming: SavedVersion | null;
   message: { tone: 'ok' | 'error'; text: string } | null;
-  versions: SavedVersion[] | null;
   /** The site asks for a team key at all (whether or not this browser has it). */
   protectedByKey: boolean;
   /** Tries a team key; it is kept in this browser only when the site accepts it. */
@@ -32,7 +31,7 @@ export interface SharedSync {
   save: (force?: boolean) => void;
   loadIncoming: () => void;
   keepMine: () => void;
-  showVersions: () => void;
+  /** Makes an earlier save this browser's copy. */
   restore: (revision: number) => void;
 }
 
@@ -62,7 +61,6 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
   const [saving, setSaving] = useState(false);
   const [incoming, setIncoming] = useState<SavedVersion | null>(null);
   const [message, setMessage] = useState<SharedSync['message']>(null);
-  const [versions, setVersions] = useState<SavedVersion[] | null>(null);
   const [protectedByKey, setProtectedByKey] = useState(false);
   const text = serializeState(state);
   const dirty = fingerprint(text) !== meta.hash;
@@ -128,7 +126,7 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
     if (reply.ok) {
       latest.current.hadLocalCopy = true;
       setMeta({ revision: reply.data.revision, savedAt: reply.data.savedAt, hash: fingerprint(sent) });
-      setIncoming(null); setStatus('ready'); setVersions(null);
+      setIncoming(null); setStatus('ready');
       setMessage({ tone: 'ok', text: 'Saved for everyone.' });
     } else if (reply.trouble === 'conflict') {
       setIncoming({ revision: Number(reply.detail?.revision ?? 0), savedAt: String(reply.detail?.savedAt ?? '') });
@@ -151,7 +149,7 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
   }, [pull]);
 
   const forgetKey = useCallback(() => {
-    storeKey(null); setIncoming(null); setVersions(null); setStatus('locked');
+    storeKey(null); setIncoming(null); setStatus('locked');
     setMessage({ tone: 'ok', text: 'The team key was removed from this browser.' });
   }, []);
 
@@ -163,23 +161,17 @@ export function useSharedSync(state: CsrState, adopt: (next: CsrState) => void, 
 
   const keepMine = useCallback(() => { latest.current.dismissed = incoming?.revision ?? 0; setIncoming(null); }, [incoming]);
 
-  const showVersions = useCallback(async () => {
-    if (versions) { setVersions(null); return; }
-    const reply = await listVersions();
-    if (reply.ok) setVersions(reply.data.versions); else setMessage({ tone: 'error', text: reply.message });
-  }, [versions]);
-
   // An earlier version becomes this browser's copy only; it reaches everyone when Save is pressed.
   const restore = useCallback(async (revision: number) => {
     const reply = await loadVersion(revision);
     if (!reply.ok) { setMessage({ tone: 'error', text: reply.message }); return; }
     const parsed = parseState(JSON.stringify(reply.data.state));
     if ('error' in parsed) { setMessage({ tone: 'error', text: `That version could not be read (${parsed.error})` }); return; }
-    adopt(parsed.state); setVersions(null);
+    adopt(parsed.state);
     setMessage({ tone: 'ok', text: 'Loaded the earlier version into this browser. Press “Save for everyone” to make it the shared one.' });
   }, [adopt]);
 
-  return { status, revision: meta.revision, savedAt: meta.savedAt, dirty, saving, incoming, message, versions, protectedByKey,
+  return { status, revision: meta.revision, savedAt: meta.savedAt, dirty, saving, incoming, message, protectedByKey,
     unlock: (key: string) => { void unlock(key); }, forgetKey,
-    save: (force?: boolean) => { void save(force === true); }, loadIncoming: () => { void loadIncoming(); }, keepMine, showVersions: () => { void showVersions(); }, restore: (revision: number) => { void restore(revision); } };
+    save: (force?: boolean) => { void save(force === true); }, loadIncoming: () => { void loadIncoming(); }, keepMine, restore: (revision: number) => { void restore(revision); } };
 }

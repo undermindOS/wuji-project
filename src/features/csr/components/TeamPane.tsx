@@ -18,11 +18,11 @@ const ZONES: { value: string; label: string }[] = [
 interface TeamPaneProps {
   operators: Operator[];
   weekStart: string;
-  notice: { tone: 'ok' | 'error'; text: string } | null;
   /** Wishes sent through wish links, for every operator. */
   wishes: Wish[];
   onRemoveWish: (id: string) => void;
   onOpenWishes: () => void;
+  onOpenHistory: () => void;
   onUpdate: (id: string, patch: Partial<Operator>) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
@@ -87,7 +87,7 @@ function OperatorCard({ operator, weekStart, canRemove, wishes, onRemoveWish, on
         <div className="csr-field-row csr-field-row-3">
           {BANDS.map(([band, label]) => <RatingSelect key={band} id={`${band}-${operator.id}`} label={label} value={operator.bands[band]} onChange={rating => onUpdate({ bands: { ...operator.bands, [band]: rating } })} />)}
         </div>
-        <p className="csr-hint">Early is 6-2.30. Day is 8-4.30 and 9.30-6. Late is 11.30-8 and the short 2-8.</p>
+        <p className="csr-hint">Strong sides are preferred, weak ones avoided, and “Never” is a ban. Early is 6-2.30. Day is 8-4.30 and 9.30-6. Late is 11.30-8 and the short 2-8.</p>
         <p className="csr-group">Wishes</p>
         {wishes.length ? (
           <ul className="csr-wish-list">
@@ -108,23 +108,24 @@ function OperatorCard({ operator, weekStart, canRemove, wishes, onRemoveWish, on
   );
 }
 
-export default function TeamPane({ operators, weekStart, notice, wishes, onRemoveWish, onOpenWishes, onUpdate, onAdd, onRemove, onExport, onImport }: TeamPaneProps) {
+// The people come first: one quiet line above them, and the rare actions under the list.
+export default function TeamPane({ operators, weekStart, wishes, onRemoveWish, onOpenWishes, onOpenHistory, onUpdate, onAdd, onRemove, onExport, onImport }: TeamPaneProps) {
   const file = useRef<HTMLInputElement>(null);
   return (
     <>
-      <div className="csr-actions">
-        <button type="button" onClick={onExport}>Save to file ↓</button>
-        <button type="button" onClick={() => file.current?.click()}>Load from file ↑</button>
-        <button type="button" onClick={onAdd}>Add operator +</button>
-        <button type="button" onClick={onOpenWishes}>Wish link and wishes</button>
+      <div className="csr-team-bar">
+        <button type="button" onClick={onOpenWishes}>Wishes{wishes.length > 0 && <b>{wishes.length}</b>}</button>
+        <button type="button" onClick={onOpenHistory}>Save history</button>
       </div>
-      <input ref={file} type="file" accept="application/json,.json" className="ws-sr-only" tabIndex={-1} aria-label="Load team and weeks from a file"
-        onChange={event => { const picked = event.target.files?.[0]; if (picked) onImport(picked); event.target.value = ''; }} />
-      {notice && <p className={notice.tone === 'error' ? 'ws-notice csr-pane-notice' : 'csr-pane-status'} role="status">{notice.text}</p>}
-      <p className="csr-hint csr-pane-hint">Open an operator to edit. Strong sides are preferred, weak ones avoided, and “Never” is a ban.</p>
       <div className="csr-team">
         {operators.map(operator => <OperatorCard key={operator.id} operator={operator} weekStart={weekStart} canRemove={operators.length > 1} wishes={wishes.filter(wish => wish.operatorId === operator.id)} onRemoveWish={onRemoveWish} onUpdate={patch => onUpdate(operator.id, patch)} onRemove={() => onRemove(operator.id)} />)}
       </div>
+      <button type="button" className="csr-add-operator" onClick={onAdd}>Add operator +</button>
+      <p className="csr-team-file"><span>The team and every week as a file:</span>
+        <button type="button" className="ws-text-button" onClick={onExport}>Save to file ↓</button>
+        <button type="button" className="ws-text-button" onClick={() => file.current?.click()}>Load from file ↑</button></p>
+      <input ref={file} type="file" accept="application/json,.json" className="ws-sr-only" tabIndex={-1} aria-label="Load team and weeks from a file"
+        onChange={event => { const picked = event.target.files?.[0]; if (picked) onImport(picked); event.target.value = ''; }} />
     </>
   );
 }

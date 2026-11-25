@@ -64,8 +64,6 @@
 .workspace .csr-unlock label { color: var(--ws-text); }
 .workspace.csr .csr-unlock input { width: 260px; max-width: 100%; background: #070707; border: 1px solid #5e350d; color: var(--ws-text); padding: 7px 10px; font-size: 18px; }
 .workspace.csr .csr-unlock .ws-outline { width: auto; padding: 7px 14px; font-size: 18px; }
-.workspace .csr-versions { list-style: none; margin-top: 6px; max-height: 150px; overflow: auto; }
-.workspace .csr-versions li { padding: 3px 0; }
 
 /* Wishes: the bell, its panel, and the lists of wishes. */
 .workspace .csr-bell { position: relative; }
@@ -178,11 +176,14 @@
 
 /* Setup pane. */
 .workspace.csr .csr-setup-switch { flex-shrink: 0; border-top: 0; }
-.workspace .csr-actions { display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 14px 18px; border-bottom: 1px solid var(--ws-line); }
-.workspace .csr-actions button { color: var(--ws-green); font-size: 18px; white-space: nowrap; }
-.workspace .csr-actions button:hover { color: var(--ws-orange); }
+.workspace .csr-team-bar { display: flex; flex-wrap: wrap; gap: 2px 24px; padding: 8px 18px; border-bottom: 1px solid var(--ws-line); }
+.workspace .csr-team-bar button { font-size: 18px; color: #b4b4b4; white-space: nowrap; }
+.workspace .csr-team-bar button:hover { color: var(--ws-orange); }
+.workspace .csr-team-bar button b { margin-left: 7px; font-weight: 400; color: var(--ws-orange); }
+.workspace .csr-add-operator { display: block; width: 100%; padding: 14px 18px 14px 40px; text-align: left; font-size: 20px; color: var(--ws-green); border-bottom: 1px solid var(--ws-line); }
+.workspace .csr-add-operator:hover { color: var(--ws-orange); }
+.workspace .csr-team-file { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; padding: 12px 18px 20px 40px; font-size: 17px; line-height: 1.45; color: var(--ws-muted); }
 .workspace .csr-hint { font-size: 17px; line-height: 1.45; color: var(--ws-muted); }
-.workspace .csr-pane-hint { padding: 12px 18px; border-bottom: 1px solid var(--ws-line); }
 .workspace.csr .csr-pane-notice { margin: 12px 18px; }
 .workspace .csr-pane-status { margin: 12px 18px; font-size: 17px; line-height: 1.45; color: var(--ws-green); }
 .workspace .csr-operator { border-bottom: 1px solid var(--ws-line); }
@@ -314,6 +315,12 @@
 .workspace .csr-guide li p { font-size: 19px; line-height: 1.4; color: #c4c4c4; margin-top: 2px; }
 .workspace .csr-guide-note { font-size: 17px; line-height: 1.45; color: var(--ws-muted); margin: 14px 0 18px; }
 .workspace.csr .csr-guide .ws-primary { width: auto; min-width: 200px; }
+.workspace .csr-history ol { margin-bottom: 18px; }
+.workspace .csr-history li > div { flex: 1; min-width: 0; }
+.workspace .csr-history li p.csr-history-ask { color: var(--ws-orange); margin-top: 6px; }
+.workspace.csr .csr-history li p .ws-text-button { margin-left: 14px; }
+.workspace .csr-history > .ws-notice, .workspace .csr-history > .csr-hint { margin-bottom: 18px; }
+.workspace.csr .csr-history > .ws-outline { width: auto; min-width: 160px; }
 
 @media (max-width: 1100px) {
   .workspace .csr-top { padding: 14px 16px; }

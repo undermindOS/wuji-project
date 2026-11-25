@@ -7,7 +7,7 @@ const STEPS: [string, string][] = [
   ['Read the checks', 'The checks under the schedule say what holds and what does not: both lines covered, lunch possible, everyone at their number of shifts. Click a check to see its cells.'],
   ['Split the non-voice channels', 'On the “Non-voice channels” tab, pick a day and say who holds each channel through each stretch of the day. “Fill automatically” gives a first draft.'],
   ['Collect wishes', '“Wishes” at the top makes a link for the operators. Each one picks their name, marks days and hours and adds a comment. What they send shows up under “Wishes” and in their card on the left.'],
-  ['Save and share', 'Every change is autosaved in this browser. “Save for everyone” puts your copy where everyone who opens this page gets it. Download the week as a PDF for the chat, or copy it into the team sheet.'],
+  ['Save and share', 'Every change is autosaved in this browser. “Save for everyone” puts your copy where everyone who opens this page gets it, and “Save history” above the team keeps the last thirty of those saves. Download the week as a PDF for the chat, or copy it into the team sheet.'],
 ];
 
 /** The first-visit guide. It opens once, and again from the "Guide" button next to the build button. */

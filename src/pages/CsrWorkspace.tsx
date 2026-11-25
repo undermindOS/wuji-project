@@ -8,6 +8,7 @@ import { useWishes } from '../features/csr/api/useWishes.ts';
 import Bell from '../features/csr/components/Bell';
 import Guide from '../features/csr/components/Guide';
 import RolloutPane from '../features/csr/components/RolloutPane';
+import SaveHistory from '../features/csr/components/SaveHistory';
 import SchedulePane from '../features/csr/components/SchedulePane';
 import type { ClockMode } from '../features/csr/components/SchedulePane';
 import TeamPane from '../features/csr/components/TeamPane';
@@ -46,7 +47,7 @@ function loadState(): { state: CsrState; notice: Notice; hadLocalCopy: boolean }
     window.localStorage.setItem(`${STORAGE_KEY}.unreadable`, text);
     return { state: defaultState(), notice: { tone: 'error', text: `The data saved in this browser could not be read (${parsed.error}) It was set aside, and the team’s sample week was opened instead.` }, hadLocalCopy: false };
   } catch {
-    return { state: defaultState(), notice: { tone: 'error', text: 'This browser does not allow saving here. Changes will be lost when the page closes; use “Save to file”.' }, hadLocalCopy: false };
+    return { state: defaultState(), notice: { tone: 'error', text: 'This browser does not allow saving here. Changes will be lost when the page closes; use “Save to file” under the team list.' }, hadLocalCopy: false };
   }
 }
 
@@ -62,10 +63,10 @@ function download(filename: string, blob: Blob) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** One line under the toolbar: where the work is saved, and what to do when two copies disagree. */
-function SyncLine({ sync, autosaved }: { sync: SharedSync; autosaved: boolean }) {
+/** One line under the toolbar: where the work is saved, what just happened to it, and what to do when two copies disagree. */
+function SyncLine({ sync, autosaved, note }: { sync: SharedSync; autosaved: boolean; note: Notice }) {
   const [key, setKey] = useState('');
-  const here = autosaved ? 'Autosaved in this browser.' : 'This browser cannot autosave; use “Save to file”.';
+  const here = autosaved ? 'Autosaved in this browser.' : 'This browser cannot autosave; use “Save to file” under the team list.';
   const shared = sync.status === 'checking' ? 'Checking the copy saved for everyone…'
     : sync.status === 'not_connected' ? 'Shared storage is not connected yet, so “Save for everyone” is off.'
     : sync.status === 'unavailable' ? 'Shared storage cannot be reached right now.'
@@ -74,7 +75,7 @@ function SyncLine({ sync, autosaved }: { sync: SharedSync; autosaved: boolean })
     : sync.dirty ? `You have changes that are not saved for everyone. Last shared save: ${whenLabel(sync.savedAt)}.`
     : `Same as the copy saved for everyone on ${whenLabel(sync.savedAt)}.`;
   return (
-    <div className="csr-sync" data-tone={sync.incoming || sync.status === 'locked' ? 'warn' : sync.message?.tone === 'error' ? 'error' : 'plain'}>
+    <div className="csr-sync" data-tone={sync.incoming || sync.status === 'locked' ? 'warn' : sync.message?.tone === 'error' || note?.tone === 'error' ? 'error' : 'plain'}>
       {sync.incoming ? (
         <p role="alert"><strong>Someone saved a newer copy for everyone{sync.incoming.savedAt ? ` on ${whenLabel(sync.incoming.savedAt)}` : ''}, and you have changes of your own.</strong>{' '}
           <button type="button" className="ws-text-button" onClick={sync.loadIncoming}>Load theirs and drop mine</button>
@@ -82,7 +83,6 @@ function SyncLine({ sync, autosaved }: { sync: SharedSync; autosaved: boolean })
           <button type="button" className="ws-text-button" onClick={sync.keepMine}>Decide later</button></p>
       ) : (
         <p role="status">{here} {shared}{sync.message ? <b data-tone={sync.message.tone}> {sync.message.text}</b> : null}
-          {sync.status === 'ready' && sync.revision > 0 && <button type="button" className="ws-text-button" onClick={sync.showVersions}>{sync.versions ? 'Hide earlier saves' : 'Earlier saves'}</button>}
           {sync.status === 'ready' && sync.protectedByKey && <button type="button" className="ws-text-button" onClick={sync.forgetKey}>Forget the team key here</button>}</p>
       )}
       {sync.status === 'locked' && !sync.incoming && (
@@ -93,14 +93,7 @@ function SyncLine({ sync, autosaved }: { sync: SharedSync; autosaved: boolean })
           <span>Ask the scheduler for it. It is remembered in this browser.</span>
         </form>
       )}
-      {sync.versions && (
-        <ul className="csr-versions">
-          {sync.versions.length ? sync.versions.map(version => (
-            <li key={version.revision}>{whenLabel(version.savedAt)} · save {version.revision}{version.revision === sync.revision ? ' · the one this browser has' : ''}
-              <button type="button" className="ws-text-button" onClick={() => sync.restore(version.revision)}>Load into this browser</button></li>
-          )) : <li>No saves are kept yet.</li>}
-        </ul>
-      )}
+      {note && <p role="status"><b data-tone={note.tone}>{note.text}</b></p>}
     </div>
   );
 }
@@ -120,6 +113,7 @@ export default function CsrWorkspace() {
   const [mobileView, setMobileView] = useState<View>('schedule');
   const [guideOpen, setGuideOpen] = useState(() => !guideSeen());
   const [bellOpen, setBellOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -127,6 +121,12 @@ export default function CsrWorkspace() {
     window.scrollTo(0, 0);
     return () => { document.title = previousTitle; };
   }, []);
+  // A note about a file or a reset is news for a moment; a note about trouble stays.
+  useEffect(() => {
+    if (!notice || notice.tone === 'error') return;
+    const timer = window.setTimeout(() => setNotice(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   // Autosave: every change is written to this browser at once.
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, serializeState(state)); setSaved(true); } catch { setSaved(false); }
@@ -153,6 +153,8 @@ export default function CsrWorkspace() {
     setGuideOpen(false);
     try { window.localStorage.setItem(GUIDE_KEY, 'seen'); } catch { /* the guide simply opens again next time */ }
   }, []);
+
+  const closeHistory = useCallback(() => setHistoryOpen(false), []);
 
   const showSetup = (view: 'team' | 'week') => { setSetupView(view); setMobileView(view); };
   const openWeekAt = (weekStart: string) => { build.cancel(); setSelected(null); setFocusCheckId(null); change(current => openWeek(current, weekStart)); };
@@ -212,7 +214,7 @@ export default function CsrWorkspace() {
             : <button type="button" className="ws-reset" onClick={() => setConfirmReset(true)}>Reset ↺</button>}
         </div>
       </div>
-      <SyncLine sync={sync} autosaved={saved} />
+      <SyncLine sync={sync} autosaved={saved} note={notice} />
       <nav className="ws-mobile-tabs" aria-label="Schedule builder panels">{views.map(view => <button type="button" key={view.id} onClick={() => { setMobileView(view.id); if (view.id !== 'schedule') setSetupView(view.id); }} aria-pressed={mobileView === view.id}><span>{view.number}</span> {view.label}</button>)}</nav>
       <main className="ws-panels" aria-label="Schedule builder">
         <section id="workspace-setup" className="ws-pane ws-source-pane" aria-labelledby="setup-heading" data-active={mobileView !== 'schedule'}>
@@ -223,7 +225,7 @@ export default function CsrWorkspace() {
           </div>
           <div className="ws-pane-scroll">
             {setupView === 'team'
-              ? <TeamPane operators={state.operators} weekStart={state.weekStart} notice={notice} wishes={wishes.wishes} onRemoveWish={wishes.remove} onOpenWishes={() => setBellOpen(true)}
+              ? <TeamPane operators={state.operators} weekStart={state.weekStart} wishes={wishes.wishes} onRemoveWish={wishes.remove} onOpenWishes={() => setBellOpen(true)} onOpenHistory={() => setHistoryOpen(true)}
                   onUpdate={(id, patch) => change(current => updateOperator(current, id, patch))} onAdd={() => change(addOperator)}
                   onRemove={id => { if (selected?.operatorId === id) setSelected(null); change(current => removeOperator(current, id)); }}
                   onExport={exportFile} onImport={file => void importFile(file)} />
@@ -246,6 +248,7 @@ export default function CsrWorkspace() {
       </main>
       <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {saved ? 'AUTOSAVED IN THIS BROWSER' : 'NOT AUTOSAVED — USE “SAVE TO FILE”'} <span className="ws-footer-divider">/</span> <span>{sync.status === 'ready' ? sync.dirty ? 'NOT YET SAVED FOR EVERYONE' : 'SAVED FOR EVERYONE' : sync.status === 'locked' ? 'SHARED COPY NEEDS THE TEAM KEY' : 'SHARED STORAGE OFF'}</span></span><span><Link to="/workspace" className="csr-footer-link">SCHEDULE REPAIR DEMO ↗</Link></span></footer>
       {guideOpen && <Guide onClose={closeGuide} />}
+      {historyOpen && <SaveHistory sync={sync} onClose={closeHistory} />}
     </div>
   );
 }

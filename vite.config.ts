@@ -6,7 +6,7 @@ import { accessKeyFromEnv, createApi, memoryKv } from './api/csr.ts';
 // On the site /api/csr is a Vercel Function backed by shared storage. Locally the same handler runs
 // here with storage kept in memory: it lasts until the dev server stops and never leaves this machine.
 // CSR_NO_STORAGE=1 npm run dev shows the page as it is on a site where storage is not connected.
-// CSR_ACCESS_KEY=… npm run dev locks the local storage with a team key, as the owner does on the site.
+// CSR_ACCESS_KEY=… npm run dev switches accounts on, as the owner does on the site: that value is the owner key.
 declare const process: { env: Record<string, string | undefined> };
 
 function localSharedStorage(): Plugin {
@@ -18,8 +18,9 @@ function localSharedStorage(): Plugin {
     request.on('data', (chunk: Uint8Array) => chunks.push(chunk));
     request.on('end', async () => {
       const body = chunks.length ? new TextDecoder().decode(new Uint8Array(chunks.flatMap(chunk => [...chunk]))) : undefined;
-      const key = request.headers['x-csr-key'];
-      const answer = await api.fetch(new Request(`http://localhost${request.url}`, { method: request.method, headers: typeof key === 'string' ? { 'x-csr-key': key } : undefined, body: request.method === 'GET' ? undefined : body }));
+      // The handler reads only these: the session cookie, and what tells a write from this page from one sent from elsewhere.
+      const headers = Object.fromEntries(['cookie', 'content-type', 'sec-fetch-site'].flatMap(name => typeof request.headers[name] === 'string' ? [[name, request.headers[name]]] : []));
+      const answer = await api.fetch(new Request(`http://localhost${request.url}`, { method: request.method, headers, body: request.method === 'GET' ? undefined : body }));
       response.statusCode = answer.status;
       answer.headers.forEach((value, name) => response.setHeader(name, value));
       response.end(await answer.text());

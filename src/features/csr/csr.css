@@ -64,6 +64,32 @@
 .workspace .csr-unlock label { color: var(--ws-text); }
 .workspace.csr .csr-unlock input { width: 260px; max-width: 100%; background: #070707; border: 1px solid #5e350d; color: var(--ws-text); padding: 7px 10px; font-size: 18px; }
 .workspace.csr .csr-unlock .ws-outline { width: auto; padding: 7px 14px; font-size: 18px; }
+.workspace.csr .csr-unlock input { width: 200px; }
+.workspace .csr-unlock > span { flex-basis: 100%; }
+.workspace .csr-unlock > b { flex-basis: 100%; }
+
+/* Accounts: the name in the header, and the dialog behind it. */
+.workspace .csr-account-button { display: flex; align-items: center; gap: 7px; max-width: 220px; font: 13px 'Space Mono', 'Courier New', monospace; letter-spacing: .05em; color: var(--ws-text); border: 1px solid #303030; padding: 5px 10px; }
+.workspace .csr-account-button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace .csr-account-button:hover { color: var(--ws-green); border-color: var(--ws-green); }
+.workspace .csr-account-button[data-unread='true'] { color: var(--ws-orange); border-color: var(--ws-orange); }
+.workspace .csr-account-button b { min-width: 20px; padding: 0 5px; font-weight: 400; text-align: center; color: #000; background: var(--ws-orange); }
+.workspace .csr-accounts h3 { font-size: 22px; line-height: 1.3; font-weight: 400; color: #fff; margin: 18px 0 8px; }
+.workspace.csr .csr-accounts .ws-text-button { margin-left: 14px; }
+.workspace.csr .csr-accounts li p .ws-text-button:first-child { margin-left: 0; }
+.workspace .csr-accounts .ws-notice[data-tone='ok'] { border-color: #26422d; color: var(--ws-green); }
+.workspace .csr-account-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; padding-bottom: 16px; border-bottom: 1px solid var(--ws-line); }
+.workspace .csr-account-form h3 { grid-column: 1 / -1; margin-bottom: 0; }
+.workspace .csr-account-form .csr-field:only-of-type { grid-column: 1 / 3; }
+.workspace.csr .csr-account-form input, .workspace.csr .csr-account-approve select { width: 100%; background: #070707; border: 1px solid #303030; color: var(--ws-text); padding: 7px 10px; font-size: 18px; }
+.workspace.csr .csr-accounts .ws-outline { width: auto; padding: 7px 14px; font-size: 18px; }
+.workspace .csr-account-approve { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.workspace.csr .csr-account-approve select { flex: 1 1 260px; width: auto; }
+.workspace .csr-one-time code { display: block; margin: 6px 0; font: 20px 'Space Mono', 'Courier New', monospace; color: #fff; user-select: all; }
+.workspace .csr-accounts > .ws-outline { margin-top: 18px; }
+.workspace .csr-wish-who { margin-bottom: 18px; }
+.workspace .csr-wish-who b { font-weight: 400; color: #fff; }
+.workspace.csr .csr-wish-who .ws-text-button { margin-left: 14px; }
 
 /* Wishes: the bell, its panel, and the lists of wishes. */
 .workspace .csr-bell { position: relative; }
@@ -345,6 +371,9 @@
   .workspace.csr .csr-toolbar .csr-save { width: 100%; }
   .workspace .csr-reset-confirm { grid-column: 1 / -1; flex-direction: row; margin-top: 0; }
   .workspace .csr-bell-button > span { display: none; }
+  .workspace .csr-account-button { max-width: 120px; }
+  .workspace .csr-account-form { grid-template-columns: 1fr; }
+  .workspace .csr-account-form .csr-field:only-of-type { grid-column: auto; }
   .workspace .csr-bell-panel { position: fixed; top: 76px; left: 12px; right: 12px; width: auto; }
   .workspace .csr-wish-days > div { grid-template-columns: 1fr; }
   .workspace .csr-operator-body { padding-left: 18px; }

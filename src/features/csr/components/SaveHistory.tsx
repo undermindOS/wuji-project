@@ -37,7 +37,7 @@ export default function SaveHistory({ sync, onClose }: { sync: SharedSync; onClo
   }, [onClose]);
 
   const unavailable = sync.status === 'checking' ? 'Checking the copy saved for everyone…'
-    : sync.status === 'locked' ? 'The save history is behind the team key. Enter the key under the toolbar first.'
+    : sync.status === 'locked' ? 'The save history opens after you sign in with an account the owner has let in.'
     : sync.status === 'not_connected' ? 'Shared storage is not connected, so no saves are kept.'
     : sync.status === 'unavailable' ? 'Shared storage cannot be reached right now. Try again in a minute.'
     : trouble;
@@ -59,7 +59,7 @@ export default function SaveHistory({ sync, onClose }: { sync: SharedSync; onClo
                     <span aria-hidden="true">{String(version.revision).padStart(2, '0')}</span>
                     <div>
                       <strong>{whenLabel(version.savedAt)}</strong>
-                      <p>Save {version.revision}{mine ? sync.dirty ? ' · your copy started from this one' : ' · this is the copy in this browser' : ''}
+                      <p>Save {version.revision}{version.savedBy ? ` by ${version.savedBy}` : ''}{mine ? sync.dirty ? ' · your copy started from this one' : ' · this is the copy in this browser' : ''}
                         {asking !== version.revision && (!mine || sync.dirty) && <button type="button" className="ws-text-button" onClick={() => setAsking(version.revision)}>Load into this browser</button>}</p>
                       {asking === version.revision && (
                         <p className="csr-history-ask" role="alert">This replaces everything in this browser{sync.dirty ? ', and your changes that are not saved for everyone will be lost' : ''}.

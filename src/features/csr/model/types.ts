@@ -82,6 +82,8 @@ export interface Wish {
   shifts: string[];
   comment: string;
   createdAt: string;
+  /** The account it was sent from; missing for a wish sent through a wish link, where the name is only picked. */
+  account?: string;
 }
 
 /** Everything the tool keeps: the team, and every week worked on, keyed by its Monday. */

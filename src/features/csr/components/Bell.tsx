@@ -9,7 +9,7 @@ interface BellProps {
   wishes: Wishes;
   operators: Operator[];
   weekStart: string;
-  /** The wish list is behind a team key this browser does not have. */
+  /** The wish list is for approved accounts, and nobody with one is signed in here. */
   locked: boolean;
   open: boolean;
   onToggle: (open: boolean) => void;
@@ -56,7 +56,7 @@ export default function Bell({ wishes, operators, weekStart, locked, open, onTog
       {open && (
         <div className="csr-bell-panel" role="dialog" aria-label="Wishes from operators">
           <div className="csr-bell-head"><strong>Wishes from operators</strong><span className="ws-kicker">{wishes.wishes.length} in all</span></div>
-          {!wishes.available ? <p className="ws-notice">{locked ? 'Wishes are behind the team key. Enter it under the toolbar, and the link and this list start working.' : 'Wishes travel through shared storage, which is not connected yet. Once it is, the link and this list start working.'}</p> : (
+          {!wishes.available ? <p className="ws-notice">{locked ? 'Wishes open after you sign in with an account the owner has let in. Then the link and this list start working.' : 'Wishes travel through shared storage, which is not connected yet. Once it is, the link and this list start working.'}</p> : (
             <>
               <div className="csr-bell-link">
                 <button type="button" className="ws-outline" disabled={busy} onClick={() => void create()}>{busy ? 'Making the link…' : `Make a wish link for ${weekRange(weekStart)}`}</button>
@@ -69,7 +69,7 @@ export default function Bell({ wishes, operators, weekStart, locked, open, onTog
                   </>
                 )}
                 {note && <p className="csr-hint" role="status">{note}</p>}
-                <p className="csr-hint">Anyone with the link can pick their name, mark preferred days and hours, and add a comment. What they send shows up here and in their card on the left.</p>
+                <p className="csr-hint">Anyone with the link can pick their name, mark preferred days and hours, and add a comment. What they send shows up here and in their card on the left. An operator with an account of their own needs no link: they sign in on this page.</p>
               </div>
               {wishes.wishes.length ? (
                 <ul className="csr-wish-list">
@@ -77,7 +77,7 @@ export default function Bell({ wishes, operators, weekStart, locked, open, onTog
                     <li key={wish.id}>
                       <strong>{wish.nick}<small>week of {weekRange(wish.weekStart)}</small></strong>
                       {wishLines(wish).map(line => <p key={line}>{line}</p>)}
-                      <small>{whenLabel(wish.createdAt)} · <button type="button" className="ws-text-button" onClick={() => wishes.remove(wish.id)}>Remove</button></small>
+                      <small>{whenLabel(wish.createdAt)}{wish.account ? ` · from their own account, ${wish.account}` : ''} · <button type="button" className="ws-text-button" onClick={() => wishes.remove(wish.id)}>Remove</button></small>
                     </li>
                   ))}
                 </ul>

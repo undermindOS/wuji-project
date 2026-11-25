@@ -1,6 +1,6 @@
-import { emptyWeek, templateById } from './defaults.ts';
+import { SLOTS, defaultChannels, emptyWeek, templateById } from './defaults.ts';
 import { isMonday, isValidZone } from './time.ts';
-import type { Cell, CsrState, DayTarget, Operator, PlanStatus, Rating, Request, WeekData } from './types.ts';
+import type { Cell, Channel, CsrState, DayTarget, Operator, PlanStatus, Rating, Request, Rollout, WeekData } from './types.ts';
 
 export const STORAGE_KEY = 'wuji.csr.v1';
 const RATINGS: Rating[] = ['strong', 'normal', 'weak', 'never'];
@@ -60,7 +60,7 @@ function parseWeek(value: unknown, operators: Operator[], label: string): WeekDa
   if (week.plan) {
     const status = value.planStatus;
     const fallback: PlanStatus = { source: 'solver', rulesProven: null, tuned: null, relaxed: null, edited: true, stale: true };
-    week.planStatus = isObject(status) && (status.source === 'sample' || status.source === 'solver') ? {
+    week.planStatus = isObject(status) && (status.source === 'sample' || status.source === 'solver' || status.source === 'manual') ? {
       source: status.source,
       rulesProven: typeof status.rulesProven === 'boolean' ? status.rulesProven : null,
       tuned: typeof status.tuned === 'boolean' ? status.tuned : null,
@@ -68,7 +68,40 @@ function parseWeek(value: unknown, operators: Operator[], label: string): WeekDa
       edited: status.edited === true, stale: status.stale === true,
     } : fallback;
   }
+  // Weeks saved before channels existed simply have none assigned.
+  if (value.rollout !== undefined) {
+    const rollout = parseRollout(value.rollout);
+    if (!rollout) return `week ${label}: the non-voice channel table is malformed`;
+    week.rollout = rollout;
+  }
   return week;
+}
+
+function parseRollout(value: unknown): Rollout | null {
+  if (!Array.isArray(value) || value.length !== 7) return null;
+  const rollout: Rollout = [];
+  for (const day of value) {
+    if (!isObject(day) || Object.keys(day).length > 24) return null;
+    const channels: Record<string, (string | null)[]> = {};
+    for (const [channelId, slots] of Object.entries(day)) {
+      if (!Array.isArray(slots) || slots.length !== SLOTS || !slots.every(slot => slot === null || (typeof slot === 'string' && slot.length <= 40))) return null;
+      channels[channelId] = slots as (string | null)[];
+    }
+    rollout.push(channels);
+  }
+  return rollout;
+}
+
+function parseChannels(value: unknown): Channel[] | string {
+  if (value === undefined) return defaultChannels();
+  if (!Array.isArray(value) || value.length > 12) return 'the list of non-voice channels is malformed';
+  const channels: Channel[] = [];
+  for (const item of value) {
+    if (!isObject(item) || typeof item.id !== 'string' || !/^[a-z0-9-]{1,40}$/.test(item.id) || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 40) return 'a non-voice channel has no id or name';
+    if (channels.some(channel => channel.id === item.id)) return `channel id ${item.id} appears twice`;
+    channels.push({ id: item.id, name: item.name });
+  }
+  return channels;
 }
 
 /** Reads a saved or imported state. Anything unexpected is refused with a reason, never patched silently. */
@@ -84,6 +117,8 @@ export function parseState(text: string): { state: CsrState } | { error: string 
     if (operators.some(existing => existing.id === operator.id)) return { error: `Cannot read the team: operator id ${operator.id} appears twice.` };
     operators.push(operator);
   }
+  const channels = parseChannels(raw.channels);
+  if (typeof channels === 'string') return { error: `Cannot read the file: ${channels}.` };
   if (typeof raw.weekStart !== 'string' || !isMonday(raw.weekStart)) return { error: 'The current week must start on a Monday.' };
   if (!isObject(raw.weeks) || Object.keys(raw.weeks).length > 520) return { error: 'The list of weeks is missing.' };
   const weeks: Record<string, WeekData> = {};
@@ -94,7 +129,7 @@ export function parseState(text: string): { state: CsrState } | { error: string 
     weeks[start] = week;
   }
   if (!weeks[raw.weekStart]) weeks[raw.weekStart] = emptyWeek(operators);
-  return { state: { version: 1, operators, weekStart: raw.weekStart, weeks } };
+  return { state: { version: 1, operators, channels, weekStart: raw.weekStart, weeks } };
 }
 
 export const serializeState = (state: CsrState): string => JSON.stringify(state, null, 2);

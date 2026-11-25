@@ -4,6 +4,7 @@ import Home from './pages/Home';
 
 const Workspace = lazy(() => import('./pages/Workspace'));
 const CsrWorkspace = lazy(() => import('./pages/CsrWorkspace'));
+const CsrWish = lazy(() => import('./pages/CsrWish'));
 
 function App() {
   return (
@@ -17,6 +18,11 @@ function App() {
       <Route path="/fs_csr_schedule" element={
         <Suspense fallback={<div role="status" className="font-data text-phosphor p-8">Loading schedule…</div>}>
           <CsrWorkspace />
+        </Suspense>
+      } />
+      <Route path="/fs_csr_schedule/wish/:token" element={
+        <Suspense fallback={<div role="status" className="font-data text-phosphor p-8">Loading the form…</div>}>
+          <CsrWish />
         </Suspense>
       } />
       {/* A second address for /workspace, kept for links made while the schedule builder lived there. */}

@@ -193,7 +193,7 @@ export default function CsrWorkspace() {
             onDownload={() => { if (week.plan) { download(`operators-schedule-${state.weekStart}.csv`, new Blob([toCsv(state.weekStart, state.operators, week.plan)], { type: 'text/csv;charset=utf-8' })); setExportNotice('The CSV was saved in the team sheet’s own layout. In Google Sheets: File → Import.'); } }} />
         </section>
       </main>
-      <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {saved ? 'SAVED IN THIS BROWSER' : 'NOT SAVED — USE “SAVE TO FILE”'} <span className="ws-footer-divider">/</span> <span>NO SERVER</span></span><span><Link to="/workspace/repair" className="csr-footer-link">SCHEDULE REPAIR DEMO ↗</Link></span></footer>
+      <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {saved ? 'SAVED IN THIS BROWSER' : 'NOT SAVED — USE “SAVE TO FILE”'} <span className="ws-footer-divider">/</span> <span>NO SERVER</span></span><span><Link to="/workspace" className="csr-footer-link">SCHEDULE REPAIR DEMO ↗</Link></span></footer>
       {guideOpen && <Guide onClose={closeGuide} />}
     </div>
   );

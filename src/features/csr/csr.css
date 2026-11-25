@@ -60,6 +60,10 @@
 .workspace .csr-sync b { font-weight: 400; color: var(--ws-green); }
 .workspace .csr-sync b[data-tone='error'] { color: var(--ws-red); }
 .workspace.csr .csr-sync .ws-text-button { margin-left: 14px; }
+.workspace .csr-unlock { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-top: 8px; }
+.workspace .csr-unlock label { color: var(--ws-text); }
+.workspace.csr .csr-unlock input { width: 260px; max-width: 100%; background: #070707; border: 1px solid #5e350d; color: var(--ws-text); padding: 7px 10px; font-size: 18px; }
+.workspace.csr .csr-unlock .ws-outline { width: auto; padding: 7px 14px; font-size: 18px; }
 .workspace .csr-versions { list-style: none; margin-top: 6px; max-height: 150px; overflow: auto; }
 .workspace .csr-versions li { padding: 3px 0; }
 

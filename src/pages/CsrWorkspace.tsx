@@ -64,15 +64,17 @@ function download(filename: string, blob: Blob) {
 
 /** One line under the toolbar: where the work is saved, and what to do when two copies disagree. */
 function SyncLine({ sync, autosaved }: { sync: SharedSync; autosaved: boolean }) {
+  const [key, setKey] = useState('');
   const here = autosaved ? 'Autosaved in this browser.' : 'This browser cannot autosave; use “Save to file”.';
   const shared = sync.status === 'checking' ? 'Checking the copy saved for everyone…'
     : sync.status === 'not_connected' ? 'Shared storage is not connected yet, so “Save for everyone” is off.'
     : sync.status === 'unavailable' ? 'Shared storage cannot be reached right now.'
+    : sync.status === 'locked' ? 'The copy saved for everyone is behind the team key.'
     : sync.revision === 0 ? 'Nothing has been saved for everyone yet.'
     : sync.dirty ? `You have changes that are not saved for everyone. Last shared save: ${whenLabel(sync.savedAt)}.`
     : `Same as the copy saved for everyone on ${whenLabel(sync.savedAt)}.`;
   return (
-    <div className="csr-sync" data-tone={sync.incoming ? 'warn' : sync.message?.tone === 'error' ? 'error' : 'plain'}>
+    <div className="csr-sync" data-tone={sync.incoming || sync.status === 'locked' ? 'warn' : sync.message?.tone === 'error' ? 'error' : 'plain'}>
       {sync.incoming ? (
         <p role="alert"><strong>Someone saved a newer copy for everyone{sync.incoming.savedAt ? ` on ${whenLabel(sync.incoming.savedAt)}` : ''}, and you have changes of your own.</strong>{' '}
           <button type="button" className="ws-text-button" onClick={sync.loadIncoming}>Load theirs and drop mine</button>
@@ -80,7 +82,16 @@ function SyncLine({ sync, autosaved }: { sync: SharedSync; autosaved: boolean })
           <button type="button" className="ws-text-button" onClick={sync.keepMine}>Decide later</button></p>
       ) : (
         <p role="status">{here} {shared}{sync.message ? <b data-tone={sync.message.tone}> {sync.message.text}</b> : null}
-          {sync.status === 'ready' && sync.revision > 0 && <button type="button" className="ws-text-button" onClick={sync.showVersions}>{sync.versions ? 'Hide earlier saves' : 'Earlier saves'}</button>}</p>
+          {sync.status === 'ready' && sync.revision > 0 && <button type="button" className="ws-text-button" onClick={sync.showVersions}>{sync.versions ? 'Hide earlier saves' : 'Earlier saves'}</button>}
+          {sync.status === 'ready' && sync.protectedByKey && <button type="button" className="ws-text-button" onClick={sync.forgetKey}>Forget the team key here</button>}</p>
+      )}
+      {sync.status === 'locked' && !sync.incoming && (
+        <form className="csr-unlock" onSubmit={event => { event.preventDefault(); sync.unlock(key); setKey(''); }}>
+          <label htmlFor="csr-team-key">Team key</label>
+          <input id="csr-team-key" type="password" autoComplete="current-password" value={key} onChange={event => setKey(event.target.value)} />
+          <button type="submit" className="ws-outline" disabled={!key.trim()}>Unlock</button>
+          <span>Ask the scheduler for it. It is remembered in this browser.</span>
+        </form>
       )}
       {sync.versions && (
         <ul className="csr-versions">
@@ -137,7 +148,7 @@ export default function CsrWorkspace() {
   // A copy loaded from shared storage replaces this browser's copy as a whole.
   const adopt = useCallback((next: CsrState) => { cancelBuild(); setState(next); setSelected(null); setFocusCheckId(null); setExportNotice(null); }, [cancelBuild]);
   const sync = useSharedSync(state, adopt, initial.hadLocalCopy);
-  const wishes = useWishes(sync.status === 'ready');
+  const wishes = useWishes(sync.status === 'ready', sync.status === 'locked');
   const closeGuide = useCallback(() => {
     setGuideOpen(false);
     try { window.localStorage.setItem(GUIDE_KEY, 'seen'); } catch { /* the guide simply opens again next time */ }
@@ -183,7 +194,7 @@ export default function CsrWorkspace() {
       <header className="ws-header">
         <Link to="/" aria-label="WUJI — home" className="ws-brand"><BrandMark /></Link>
         <span className="ws-header-label">SCHEDULE BUILDER <span aria-hidden="true">/</span> OPERATORS</span>
-        <div className="ws-header-actions"><Bell wishes={wishes} operators={state.operators} weekStart={state.weekStart} open={bellOpen} onToggle={setBellOpen} /><Link to="/" className="ws-home-link">HOME ↗</Link></div>
+        <div className="ws-header-actions"><Bell wishes={wishes} operators={state.operators} weekStart={state.weekStart} locked={sync.status === 'locked'} open={bellOpen} onToggle={setBellOpen} /><Link to="/" className="ws-home-link">HOME ↗</Link></div>
       </header>
       <div className="csr-top">
         <div className="csr-title"><p className="ws-kicker"><span className="ws-green">WU</span><span className="ws-red">JI</span> // OPERATORS DIVISION</p><h1 className="font-display">BUILD THE WEEK<span className="ws-orange">_</span></h1></div>
@@ -193,7 +204,7 @@ export default function CsrWorkspace() {
             ? <button type="button" className="ws-outline csr-build" onClick={build.cancel}><span>Building…</span><span>Cancel ×</span></button>
             : <button type="button" className="ws-primary csr-build" onClick={() => { setExportNotice(null); build.start(input); }}><span>{week.plan ? 'Rebuild the week' : 'Build the week'}</span><span aria-hidden="true">→</span></button>}
           <button type="button" className="ws-outline csr-save" data-dirty={sync.status === 'ready' && sync.dirty} disabled={sync.status !== 'ready' || sync.saving} onClick={() => sync.save()}
-            title={sync.status === 'ready' ? 'Saves the team and every week where everyone who opens this page gets them' : 'Shared storage is not available'}>
+            title={sync.status === 'ready' ? 'Saves the team and every week where everyone who opens this page gets them' : sync.status === 'locked' ? 'Enter the team key first' : 'Shared storage is not available'}>
             <span>{sync.saving ? 'Saving…' : 'Save for everyone'}</span><span aria-hidden="true">↑</span></button>
           <button type="button" className="ws-outline csr-guide-open" onClick={() => setGuideOpen(true)}>Guide ?</button>
           {confirmReset
@@ -233,7 +244,7 @@ export default function CsrWorkspace() {
               onAddChannel={() => change(addChannel)} onRenameChannel={(id, name) => change(current => renameChannel(current, id, name))} onRemoveChannel={id => change(current => removeChannel(current, id))} />} />
         </section>
       </main>
-      <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {saved ? 'AUTOSAVED IN THIS BROWSER' : 'NOT AUTOSAVED — USE “SAVE TO FILE”'} <span className="ws-footer-divider">/</span> <span>{sync.status === 'ready' ? sync.dirty ? 'NOT YET SAVED FOR EVERYONE' : 'SAVED FOR EVERYONE' : 'SHARED STORAGE OFF'}</span></span><span><Link to="/workspace" className="csr-footer-link">SCHEDULE REPAIR DEMO ↗</Link></span></footer>
+      <footer className="ws-statusbar"><span><span className="ws-status-dot" aria-hidden="true" /> {saved ? 'AUTOSAVED IN THIS BROWSER' : 'NOT AUTOSAVED — USE “SAVE TO FILE”'} <span className="ws-footer-divider">/</span> <span>{sync.status === 'ready' ? sync.dirty ? 'NOT YET SAVED FOR EVERYONE' : 'SAVED FOR EVERYONE' : sync.status === 'locked' ? 'SHARED COPY NEEDS THE TEAM KEY' : 'SHARED STORAGE OFF'}</span></span><span><Link to="/workspace" className="csr-footer-link">SCHEDULE REPAIR DEMO ↗</Link></span></footer>
       {guideOpen && <Guide onClose={closeGuide} />}
     </div>
   );
